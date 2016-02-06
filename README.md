@@ -7,7 +7,7 @@
 ## Installation
 
 ```bash
-composer require nao-pon/flysystem-google-drive
+composer require nao-pon/flysystem-google-drive @dev
 ```
 
 ## Usage
