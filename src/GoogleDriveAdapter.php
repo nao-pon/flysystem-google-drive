@@ -4,7 +4,7 @@ namespace Hypweb\Flysystem\GoogleDrive;
 use Google_Service_Drive;
 use Google_Service_Drive_DriveFile;
 use Google_Service_Drive_FileList;
-use Google_Http_Request;
+use Google_Service_Drive_ParentReference;
 use Google_Http_MediaFileUpload;
 use League\Flysystem\Adapter\AbstractAdapter;
 use League\Flysystem\Config;
@@ -17,7 +17,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      *
      * @var string
      */
-    const FETCHFIELDS = 'items(alternateLink,copyable,createdDate,defaultOpenWithLink,downloadUrl,editable,embedLink,explicitlyTrashed,exportLinks,fileSize,id,labels,mimeType,modifiedDate,originalFilename,properties,title,webContentLink,webViewLink),kind,nextPageToken';
+    const FETCHFIELDS = 'items(alternateLink,copyable,createdDate,defaultOpenWithLink,downloadUrl,editable,embedLink,explicitlyTrashed,exportLinks,fileSize,id,labels,mimeType,modifiedDate,originalFilename,parents,properties,title,webContentLink,webViewLink),kind,nextPageToken';
 
     /**
      * MIME tyoe of directory
@@ -119,22 +119,33 @@ class GoogleDriveAdapter extends AbstractAdapter
     public function rename($path, $newpath)
     {
         $path = $this->applyPathPrefix($path);
+        list ($oldDirName, $oldTitle) = $this->splitPath($path);
         $newpath = $this->applyPathPrefix($newpath);
         list ($newDirName, $newTitle) = $this->splitPath($newpath);
-        $parentId = $this->ensureDirectory($newDirName);
+        $newParent = $this->ensureDirectory($newDirName);
+        $oldParent = $this->getFileId($oldDirName);
 
         if ($fileId = $this->getFileId($path)) {
             $file = new Google_Service_Drive_DriveFile();
             $file->setTitle($newTitle);
-            $file->setParents([
-                [
-                    'kind' => 'drive#fileLink',
-                    'id' => $parentId
-                ]
-            ]);
+
+            $fields = 'title';
+            if ($newParent !== $oldParent) {
+                $parents = $this->getFileObject($path)->getParents();
+                foreach($parents as $i => $parent) {
+                    if ($parent['id'] === $oldParent) {
+                        $_parent = new Google_Service_Drive_ParentReference();
+                        $_parent->setId($newParent);
+                        $parents[$i] = $_parent;
+                        $fields .= ',parents';
+                        $file->setParents($parents);
+                        break;
+                    }
+                }
+            }
 
             $updatedFile = $this->service->files->patch($fileId, $file, [
-                'fields' => 'title,parents'
+                'fields' => $fields
             ]);
 
             if ($updatedFile) {
@@ -158,25 +169,22 @@ class GoogleDriveAdapter extends AbstractAdapter
         $path = $this->applyPathPrefix($path);
         $newpath = $this->applyPathPrefix($newpath);
 
-        $res = false;
-
         if ($srcId = $this->getFileId($path)) {
             list ($newDirName, $fileName) = $this->splitPath($newpath);
 
-            $newParentId = $this->ensureDirectory($newDirName);
+            if ($newParentId = $this->ensureDirectory($newDirName)) {
+                $parent = new Google_Service_Drive_ParentReference;
+                $parent->setId($newParentId);
 
-            $file = new Google_Service_Drive_DriveFile();
-            $file->setTitle($fileName);
-            $file->setParents([
-                [
-                    'kind' => 'drive#fileLink',
-                    'id' => $newParentId
-                ]
-            ]);
+                $file = new Google_Service_Drive_DriveFile();
+                $file->setTitle($fileName);
+                $file->setParents([ $parent ]);
 
-            $res = ! is_null($this->service->files->copy($srcId, $file));
+                return ! is_null($this->service->files->copy($srcId, $file));
+            }
         }
-        return $res;
+
+        return false;
     }
 
     /**
@@ -625,13 +633,12 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     protected function createDirectory($name, $parentId = null)
     {
+        $parent = new Google_Service_Drive_ParentReference;
+        $parent->setId($parentId);
+
         $file = new Google_Service_Drive_DriveFile();
         $file->setTitle($name);
-        $file->setParents([
-            [
-                'id' => $parentId
-            ]
-        ]);
+        $file->setParents([ $parent ]);
         $file->setMimeType(self::DIRMIME);
 
         $obj = $this->service->files->insert($file);
@@ -656,83 +663,84 @@ class GoogleDriveAdapter extends AbstractAdapter
         $mode = 'update';
         $mime = $config->get('mimetype');
 
-        $parentId = $this->ensureDirectory($dirName);
+        if ($parentId = $this->ensureDirectory($dirName)) {
+            $parent = new Google_Service_Drive_ParentReference;
+            $parent->setId($parentId);
 
-        if (! $file = $this->getFileObject($path)) {
-            $file = new Google_Service_Drive_DriveFile();
-            $mode = 'insert';
-        }
-        $file->setTitle($fileName);
-        $file->setParents([
-            [
-                'kind' => 'drive#fileLink',
-                'id' => $parentId
-            ]
-        ]);
-
-        $isResource = false;
-        if (is_resource($contents)) {
-            $fstat = @fstat($contents);
-            if (! empty($fstat['size'])) {
-                $isResource = true;
+            if (! $file = $this->getFileObject($path)) {
+                $file = new Google_Service_Drive_DriveFile();
+                $mode = 'insert';
             }
-            if (! $isResource) {
-                $contents = stream_get_contents($contents);
-            }
-        }
-
-        if (! $mime) {
-            $mime = Util::guessMimeType($path, $isResource ? '' : $contents);
-        }
-        $file->setMimeType($mime);
-
-        if ($isResource) {
-            $fstat = fstat($contents);
-            $chunkSizeBytes = 1 * 1024 * 1024;
-            $client = $this->service->getClient();
-            // Call the API with the media upload, defer so it doesn't immediately return.
-            $client->setDefer(true);
             if ($mode === 'insert') {
-                $request = $this->service->files->insert($file);
-            } else {
-                $request = $this->service->files->update($file->getId(), $file);
+                $file->setTitle($fileName);
+                $file->setParents([ $parent ]);
             }
 
-            // Create a media file upload to represent our upload process.
-            $media = new Google_Http_MediaFileUpload($client, $request, $mime, null, true, $chunkSizeBytes);
-            $media->setFileSize($fstat['size']);
-            // Upload the various chunks. $status will be false until the process is
-            // complete.
-            $status = false;
-            $handle = $contents;
-            while (! $status && ! feof($handle)) {
-                // read until you get $chunkSizeBytes from TESTFILE
-                // fread will never return more than 8192 bytes if the stream is read buffered and it does not represent a plain file
-                // An example of a read buffered file is when reading from a URL
-                $chunk = $this->readFileChunk($handle, $chunkSizeBytes);
-                $status = $media->nextChunk($chunk);
+            $isResource = false;
+            if (is_resource($contents)) {
+                $fstat = @fstat($contents);
+                if (! empty($fstat['size'])) {
+                    $isResource = true;
+                }
+                if (! $isResource) {
+                    $contents = stream_get_contents($contents);
+                }
             }
-            // The final value of $status will be the data from the API for the object
-            // that has been uploaded.
-            if ($status != false) {
-                $obj = $status;
+
+            if (! $mime) {
+                $mime = Util::guessMimeType($path, $isResource ? '' : $contents);
             }
-        } else {
-            $params = [
-                'data' => $contents,
-                'uploadType' => 'media'
-            ];
-            if ($mode === 'insert') {
-                $obj = $this->service->files->insert($file, $params);
+            $file->setMimeType($mime);
+
+            if ($isResource) {
+                $fstat = fstat($contents);
+                $chunkSizeBytes = 1 * 1024 * 1024;
+                $client = $this->service->getClient();
+                // Call the API with the media upload, defer so it doesn't immediately return.
+                $client->setDefer(true);
+                if ($mode === 'insert') {
+                    $request = $this->service->files->insert($file);
+                } else {
+                    $request = $this->service->files->update($file->getId(), $file);
+                }
+
+                // Create a media file upload to represent our upload process.
+                $media = new Google_Http_MediaFileUpload($client, $request, $mime, null, true, $chunkSizeBytes);
+                $media->setFileSize($fstat['size']);
+                // Upload the various chunks. $status will be false until the process is
+                // complete.
+                $status = false;
+                $handle = $contents;
+                while (! $status && ! feof($handle)) {
+                    // read until you get $chunkSizeBytes from TESTFILE
+                    // fread will never return more than 8192 bytes if the stream is read buffered and it does not represent a plain file
+                    // An example of a read buffered file is when reading from a URL
+                    $chunk = $this->readFileChunk($handle, $chunkSizeBytes);
+                    $status = $media->nextChunk($chunk);
+                }
+                // The final value of $status will be the data from the API for the object
+                // that has been uploaded.
+                if ($status != false) {
+                    $obj = $status;
+                }
             } else {
-                $obj = $this->service->files->update($file->getId(), $file, $params);
+                $params = [
+                    'data' => $contents,
+                    'uploadType' => 'media'
+                ];
+                if ($mode === 'insert') {
+                    $obj = $this->service->files->insert($file, $params);
+                } else {
+                    $obj = $this->service->files->update($file->getId(), $file, $params);
+                }
+            }
+
+            if (is_a($obj, 'Google_Service_Drive_DriveFile')) {
+                $this->cacheFileObjects[$path] = $obj;
+                return $this->normaliseObject($obj, Util::dirname($path));
             }
         }
 
-        if (is_a($obj, 'Google_Service_Drive_DriveFile')) {
-            $this->cacheFileObjects[$path] = $obj;
-            return $this->normaliseObject($obj, Util::dirname($path));
-        }
         return false;
     }
 
