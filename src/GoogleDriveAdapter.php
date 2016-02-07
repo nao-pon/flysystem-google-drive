@@ -198,8 +198,12 @@ class GoogleDriveAdapter extends AbstractAdapter
     {
         $path = $this->applyPathPrefix($path);
         if ($id = $this->getFileId($path)) {
-            if ($result = is_null($this->service->files->delete($id))) {
+            $result = true;
+            try {
+                $this->service->files->delete($id);
                 unset($this->cacheFileObjects[$path]);
+            } catch (Exception $e) {
+                $result = false;
             }
             return $result;
         }
@@ -693,7 +697,6 @@ class GoogleDriveAdapter extends AbstractAdapter
             $file->setMimeType($mime);
 
             if ($isResource) {
-                $fstat = fstat($contents);
                 $chunkSizeBytes = 1 * 1024 * 1024;
                 $client = $this->service->getClient();
                 // Call the API with the media upload, defer so it doesn't immediately return.
