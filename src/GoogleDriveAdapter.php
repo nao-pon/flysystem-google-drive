@@ -290,7 +290,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     public function read($path)
     {
         $arr = $this->readStream($path);
-        if (isset($arr['stream'])) {
+        if ($arr && isset($arr['stream'])) {
             return [
                 'contents' => stream_get_contents($arr['stream'])
             ];
