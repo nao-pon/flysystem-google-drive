@@ -206,13 +206,29 @@ class GoogleDriveAdapter extends AbstractAdapter
         $path = $this->applyPathPrefix($path);
         if ($id = $this->getFileId($path)) {
             $result = true;
-            try {
-                $this->service->files->delete($id);
-                unset($this->cacheFileObjects[$path]);
-            } catch (Exception $e) {
-                $result = false;
+            $file = $this->getFileObject($path);
+            if ($parents = $file->getParents()) {
+                if (count($parents) > 1) {
+                    list($dirname) = $this->splitPath($path);
+                    $newParents = [];
+                    $parentId = $this->getFileId($dirname);
+                    foreach($parents as $parent) {
+                        if ($parent['id'] !== $parentId) {
+                            $newParents[] = $parent;
+                        }
+                    }
+                    $file->setParents($newParents);
+                    if ($this->service->files->patch($id, $file, [ 'fields' => 'parents' ])) {
+                    	unset($this->cacheFileObjects[$path]);
+                    	return true;
+                    }
+                } else {
+                    if ($this->service->files->trash($id)) {
+                        unset($this->cacheFileObjects[$path]);
+                        return true;
+                    }
+                }
             }
-            return $result;
         }
         return false;
     }
@@ -226,14 +242,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     public function deleteDir($dirname)
     {
-        $dirname = $this->applyPathPrefix($dirname);
-        if ($folderId = $this->getFileId($dirname)) {
-            if ($result = is_null($this->service->files->delete($folderId))) {
-                unset($this->cacheFileObjects[$dirname]);
-            }
-            return $result;
-        }
-        return false;
+        return $this->delete($dirname);
     }
 
     /**
