@@ -277,14 +277,13 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     public function read($path)
     {
-        $path = $this->applyPathPrefix($path);
-        $file = $this->getFileObject($path);
-
-        if (false !== ($contents = $this->getFileContents($file))) {
+        $arr = $this->readStream($path);
+        if (isset($arr['stream'])) {
             return [
-                'contents' => $contents
+                'contents' => stream_get_contents($arr['stream'])
             ];
         }
+
         return false;
     }
 
@@ -303,10 +302,20 @@ class GoogleDriveAdapter extends AbstractAdapter
             if ($dlurl = $this->getDownloadUrl($file)) {
                 $url = parse_url($dlurl);
                 $client = $this->service->getClient();
-                if ($token = @json_decode($client->getAccessToken())) {
+                $token = $client->getAccessToken();
+                $access_token = '';
+                if (is_array($token)) {
+                    $access_token = $token['access_token'];
+                } else {
+                    if ($token = @json_decode($client->getAccessToken())) {
+                        $access_token = $token->access_token;
+                    }
+                }
+                if ($access_token) {
                     $stream = stream_socket_client('ssl://' . $url['host'] . ':443');
-                    fputs($stream, "GET {$url['path']}?{$url['query']}&oauth_token=" . $token->access_token . " HTTP/1.1\r\n");
+                    fputs($stream, "GET {$url['path']}?{$url['query']} HTTP/1.1\r\n");
                     fputs($stream, "Host: {$url['host']}\r\n");
+                    fputs($stream, "Authorization: Bearer {$access_token}\r\n");
                     fputs($stream, "Connection: Close\r\n");
                     fputs($stream, "\r\n");
                     while (trim(fgets($stream)) !== '') {}
@@ -588,39 +597,16 @@ class GoogleDriveAdapter extends AbstractAdapter
     }
 
     /**
-     * Get file contents
-     *
-     * @param string $file Full path
-     *
-     * @return string|false
-     */
-    protected function getFileContents($file)
-    {
-        $downloadUrl = $this->getDownloadUrl();
-
-        if ($downloadUrl) {
-            $request = new Google_Http_Request($downloadUrl, 'GET', null, null);
-            $httpRequest = $this->service->getClient()
-                ->getAuth()
-                ->authenticatedRequest($request);
-            if ($httpRequest->getResponseHttpCode() == 200) {
-                return (string) $httpRequest->getResponseBody();
-            }
-        }
-        return false;
-    }
-
-    /**
      * Get download url
      *
      * @param Google_Service_Drive_DriveFile $file
      *
      * @return string|false
      */
-    protected function getDownloadUrl(Google_Service_Drive_DriveFile $file)
+    protected function getDownloadUrl($file)
     {
-        if ($url = $file->getDownloadUrl()) {
-            return $url;
+        if (strpos($file->mimeType, 'application/vnd.google-apps') !== 0 && $url = $file->getSelfLink()) {
+            return $url . '?alt=media';
         } else
             if (($links = $file->getExportLinks()) && count($links) > 0) {
                 $links = array_values($links);
