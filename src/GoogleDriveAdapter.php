@@ -596,7 +596,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     protected function getFileContents($file)
     {
-        $downloadUrl = $file->getDownloadUrl();
+        $downloadUrl = $this->getDownloadUrl();
 
         if ($downloadUrl) {
             $request = new Google_Http_Request($downloadUrl, 'GET', null, null);
