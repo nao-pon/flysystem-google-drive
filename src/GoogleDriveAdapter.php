@@ -34,6 +34,13 @@ class GoogleDriveAdapter extends AbstractAdapter
     protected $service;
 
     /**
+     * Alias of '/' in title(filename)
+     *
+     * @var string
+     */
+    protected $driveSlash = '  ';
+
+    /**
      * Cache of file objects
      *
      * @var array
@@ -434,6 +441,18 @@ class GoogleDriveAdapter extends AbstractAdapter
         return '/' . trim($prefixed, '/');
     }
 
+    ///////////////////- ORIGINAL METHODS -///////////////////
+
+    /**
+     * Set slias of '/' in title(filename)
+     *
+     * @param string $str
+     */
+    public function setDriveSlash($str)
+    {
+        $this->driveSlash = $str;
+    }
+
     /**
      * Path splits to dirname, basename
      *
@@ -444,11 +463,13 @@ class GoogleDriveAdapter extends AbstractAdapter
     protected function splitPath($path)
     {
         $paths = explode('/', $path);
-        $fileName = array_pop($paths);
+        $alias = array_pop($paths);
+        $fileName = str_replace($this->driveSlash, '/', $alias);
         $dirName = join('/', $paths);
         return [
             $dirName,
-            $fileName
+            $fileName,
+            $alias
         ];
     }
 
@@ -462,9 +483,10 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     protected function normaliseObject(Google_Service_Drive_DriveFile $object, $dirname)
     {
+        $name = str_replace('/', $this->driveSlash, $object->getTitle());
         $result = [];
         $result['type'] = $object->mimeType === self::DIRMIME ? 'dir' : 'file';
-        $result['path'] = trim($this->removePathPrefix(rtrim($dirname, '/') . '/' . $object->getTitle()), '/');
+        $result['path'] = trim($this->removePathPrefix(rtrim($dirname, '/') . '/' . $name), '/');
         $result['timestamp'] = strtotime($object->getModifiedDate());
         if ($result['type'] === 'file') {
             $result['mimetype'] = $object->mimeType;
@@ -525,7 +547,8 @@ class GoogleDriveAdapter extends AbstractAdapter
                 $fileObjs = $gFiles->listFiles($parameters);
                 if (is_a($fileObjs, 'Google_Service_Drive_FileList')) {
                     foreach ($fileObjs as $obj) {
-                        $pathName = $dirname . '/' . $obj->getTitle();
+                        $name = str_replace('/', $this->driveSlash, $obj->getTitle());
+                        $pathName = $dirname . '/' . $name;
                         if (isset($results[$pathName])) {
                             // Not supported same filename in a directory
                             continue;
@@ -562,14 +585,18 @@ class GoogleDriveAdapter extends AbstractAdapter
             return $this->cacheFileObjects[$path];
         }
 
-        list ($dirName, $fileName) = $this->splitPath($path);
+        list ($dirName, $fileName, $alias) = $this->splitPath($path);
 
         $parentId = 'root';
         if ($dirName !== '') {
             $parentId = $this->getFileId($dirName);
         }
 
-        $q = 'title = "' . $fileName . '" and trashed = false';
+        $q = 'title = "' . $fileName . '"';
+        if ($fileName !== $alias) {
+            $q = '(' . $q . ' or title = "' . $alias . '")';
+        }
+        $q .= ' and trashed = false';
         $q .= sprintf(' and "%s" in parents', $parentId);
 
         $obj = $this->service->files->listFiles([
