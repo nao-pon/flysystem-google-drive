@@ -20,6 +20,13 @@ class GoogleDriveAdapter extends AbstractAdapter
     const FETCHFIELDS = 'items(alternateLink,copyable,createdDate,defaultOpenWithLink,downloadUrl,editable,embedLink,explicitlyTrashed,exportLinks,fileSize,id,labels,mimeType,modifiedDate,originalFilename,properties,title,webContentLink,webViewLink),kind,nextPageToken';
 
     /**
+     * MIME tyoe of directory
+     *
+     * @var string
+     */
+    const DIRMIME = 'application/vnd.google-apps.folder';
+
+    /**
      * Google_Service_Drive instance
      *
      * @var Google_Service_Drive
@@ -435,7 +442,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     protected function normaliseObject(Google_Service_Drive_DriveFile $object, $dirname)
     {
         $result = [];
-        $result['type'] = $object->mimeType === 'application/vnd.google-apps.folder' ? 'dir' : 'file';
+        $result['type'] = $object->mimeType === self::DIRMIME ? 'dir' : 'file';
         $result['path'] = trim($this->removePathPrefix(rtrim($dirname, '/') . '/' . $object->getTitle()), '/');
         $result['timestamp'] = strtotime($object->getModifiedDate());
         if ($result['type'] === 'file') {
@@ -536,17 +543,9 @@ class GoogleDriveAdapter extends AbstractAdapter
 
         list ($dirName, $fileName) = $this->splitPath($path);
 
-        $parentId = null;
-        if ($dirName === '' || $dirName === '.' || $dirName === '/') {
-            $parentId = null;
-        } else {
-            if (! empty($dirName)) {
-                $parentId = $this->getFileId($dirName);
-            }
-        }
-
-        if (is_null($parentId)) {
-            $parentId = 'root';
+        $parentId = 'root';
+        if ($dirName !== '') {
+            $parentId = $this->getFileId($dirName);
         }
 
         $q = 'title = "' . $fileName . '" and trashed = false';
@@ -580,7 +579,9 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     protected function getFileId($path)
     {
-        if ($fileObj = $this->getFileObject($path)) {
+        if ($path === '/') {
+            return 'root';
+        } else if ($fileObj = $this->getFileObject($path)) {
             return $fileObj->id;
         }
         return false;
@@ -645,7 +646,7 @@ class GoogleDriveAdapter extends AbstractAdapter
                 'id' => $parentId
             ]
         ]);
-        $file->setMimeType('application/vnd.google-apps.folder');
+        $file->setMimeType(self::DIRMIME);
 
         $obj = $this->service->files->insert($file);
         if (is_a($obj, 'Google_Service_Drive_DriveFile')) {
