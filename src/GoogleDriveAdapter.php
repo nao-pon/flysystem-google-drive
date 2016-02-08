@@ -5,8 +5,10 @@ use Google_Service_Drive;
 use Google_Service_Drive_DriveFile;
 use Google_Service_Drive_FileList;
 use Google_Service_Drive_ParentReference;
+use Google_Service_Drive_Permission;
 use Google_Http_MediaFileUpload;
 use League\Flysystem\Adapter\AbstractAdapter;
+use League\Flysystem\AdapterInterface;
 use League\Flysystem\Config;
 use League\Flysystem\Util;
 
@@ -17,7 +19,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      *
      * @var string
      */
-    const FETCHFIELDS = 'items(alternateLink,copyable,createdDate,defaultOpenWithLink,downloadUrl,editable,embedLink,explicitlyTrashed,exportLinks,fileSize,id,labels,mimeType,modifiedDate,originalFilename,parents,properties,title,webContentLink,webViewLink),kind,nextPageToken';
+    const FETCHFIELDS = 'items(copyable,downloadUrl,editable,exportLinks,fileSize,id,mimeType,modifiedDate,parents/id,permissions(domain,emailAddress,id,kind,name,role,type,value,withLink),selfLink,shareable,shared,title,webContentLink),nextPageToken';
 
     /**
      * MIME tyoe of directory
@@ -34,11 +36,42 @@ class GoogleDriveAdapter extends AbstractAdapter
     protected $service;
 
     /**
+     * Default options
+     *
+     * @var array
+     */
+    protected static $defaultOptions = [
+        'spaces' => 'drive',
+        'driveSlash' => '  ',
+        'publishPermission' => [
+            'type' => 'anyone',
+            'role' => 'reader',
+            'withLink' => true
+        ]
+    ];
+
+    /**
+     * A comma-separated list of spaces to query
+     * Supported values are 'drive', 'appDataFolder' and 'photos'
+     *
+     * @var string
+     */
+    protected $spaces;
+
+    /**
      * Alias of '/' in title(filename)
      *
      * @var string
      */
-    protected $driveSlash = '  ';
+    protected $driveSlash;
+
+    /**
+     * Permission array as published item
+     *
+     * @var array
+     */
+    protected $publishPermission;
+
 
     /**
      * Cache of file objects
@@ -47,10 +80,16 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     private $cacheFileObjects = [];
 
-    public function __construct(Google_Service_Drive $service, $prefix = null)
+    public function __construct(Google_Service_Drive $service, $prefix = null, $options = [])
     {
         $this->service = $service;
         $this->setPathPrefix($prefix);
+
+        $options = array_replace_recursive(static::$defaultOptions, $options);
+
+        $this->spaces = $options['spaces'];
+        $this->driveSlash = $options['driveSlash'];
+        $this->publishPermission = $options['publishPermission'];
     }
 
     /**
@@ -81,8 +120,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     public function writeStream($path, $resource, Config $config)
     {
-        $path = $this->applyPathPrefix($path);
-        return $this->upload($path, $resource, $config);
+        return $this->write($path, $resource, $config);
     }
 
     /**
@@ -112,7 +150,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     public function updateStream($path, $resource, Config $config)
     {
-        return $this->writeStream($path, $resource, $config);
+        return $this->write($path, $resource, $config);
     }
 
     /**
@@ -187,7 +225,15 @@ class GoogleDriveAdapter extends AbstractAdapter
                 $file->setTitle($fileName);
                 $file->setParents([ $parent ]);
 
-                return ! is_null($this->service->files->copy($srcId, $file));
+                if ($this->cacheFileObjects[$newpath] = $this->service->files->copy($srcId, $file)) {
+                    debug($this->cacheFileObjects[$newpath]);
+                    if ($this->getRawVisibility($path) === AdapterInterface::VISIBILITY_PUBLIC) {
+                        $this->publish($newpath);
+                    } else {
+                        $this->unPublish($newpath);
+                    }
+                    return true;
+                }
             }
         }
 
@@ -219,8 +265,8 @@ class GoogleDriveAdapter extends AbstractAdapter
                     }
                     $file->setParents($newParents);
                     if ($this->service->files->patch($id, $file, [ 'fields' => 'parents' ])) {
-                    	unset($this->cacheFileObjects[$path]);
-                    	return true;
+                        unset($this->cacheFileObjects[$path]);
+                        return true;
                     }
                 } else {
                     if ($this->service->files->trash($id)) {
@@ -261,25 +307,17 @@ class GoogleDriveAdapter extends AbstractAdapter
 
         if ($folderId === false) {
             if ($this->ensureDirectory($dirname)) {
-                return [
+                $result = [
                     'path' => $dirname
                 ];
+                if ($visibility = $config->get('visibility')) {
+                    if ($this->setVisibility($this->removePathPrefix($path), $visibility)) {
+                        $result['visibility'] = $visibility;
+                    }
+                }
+                return $result;
             }
         }
-        return false;
-    }
-
-    /**
-     * Set the visibility for a file.
-     *
-     * @param string $path
-     * @param string $visibility
-     *
-     * @return array|false file meta data
-     */
-    public function setVisibility($path, $visibility)
-    {
-        // Todo
         return false;
     }
 
@@ -325,8 +363,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     public function readStream($path)
     {
         $path = $this->applyPathPrefix($path);
-        $fileId = $this->getFileId($path);
-        if ($fileId && $file = $this->service->files->get($fileId)) {
+        if ($file = $this->getFileObject($path)) {
             if ($dlurl = $this->getDownloadUrl($file)) {
                 $url = parse_url($dlurl);
                 $client = $this->service->getClient();
@@ -425,6 +462,27 @@ class GoogleDriveAdapter extends AbstractAdapter
     }
 
     /**
+     * Set the visibility for a file.
+     *
+     * @param string $path
+     * @param string $visibility
+     *
+     * @return array|false file meta data
+     */
+    public function setVisibility($path, $visibility)
+    {
+        $location = $this->applyPathPrefix($path);
+        $result = ($visibility === AdapterInterface::VISIBILITY_PUBLIC)?
+            $this->publish($location) : $this->unPublish($location);
+
+        if ($result) {
+            return compact('path', 'visibility');
+        }
+
+        return false;
+    }
+
+    /**
      * Get the visibility of a file.
      *
      * @param string $path
@@ -433,8 +491,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     public function getVisibility($path)
     {
-        // Todo
-        return false;
+        return ['visibility' => $this->getRawVisibility($this->applyPathPrefix($path))];
     }
 
     /**
@@ -453,13 +510,92 @@ class GoogleDriveAdapter extends AbstractAdapter
     ///////////////////- ORIGINAL METHODS -///////////////////
 
     /**
-     * Set slias of '/' in title(filename)
+     * Get contents parmanent URL
      *
-     * @param string $str
+     * @param string $path Relative path
+     *
+     * @return string|false
      */
-    public function setDriveSlash($str)
+    public function getUrl($path)
     {
-        $this->driveSlash = $str;
+        $path = $this->applyPathPrefix($path);
+        if ($this->publish($path)) {
+            return $this->getDownloadUrl($this->getFileObject($path), true);
+        }
+        return false;
+    }
+
+    /**
+     * Get the object permissions presented as a visibility.
+     *
+     * @param string $path Absolute path
+     *
+     * @return string
+     */
+    protected function getRawVisibility($path)
+    {
+        $file = $this->getFileObject($path);
+        $permissions = $file->getPermissions();
+        $visibility = AdapterInterface::VISIBILITY_PRIVATE;
+        foreach($permissions as $permission) {
+            if ($permission->type === $this->publishPermission['type'] && $permission->role === $this->publishPermission['role']) {
+                $visibility = AdapterInterface::VISIBILITY_PUBLIC;
+                break;
+            }
+        }
+        return $visibility;
+    }
+
+    /**
+     * Publish specified path item
+     *
+     * @param string $path Absolute path
+     *
+     * @return bool
+     */
+    protected function publish($path)
+    {
+        if (($file = $this->getFileObject($path))) {
+            if ($this->getRawVisibility($path) === AdapterInterface::VISIBILITY_PUBLIC) {
+                return true;
+            }
+            try {
+                $permission = new Google_Service_Drive_Permission($this->publishPermission);
+                if ($this->service->permissions->insert($file->getId(), $permission)) {
+                    return true;
+                }
+            } catch (Exception $e) {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Un-publish specified path item
+     *
+     * @param string $path Absolute path
+     *
+     * @return bool
+     */
+    protected function unPublish($path)
+    {
+        if (($file = $this->getFileObject($path))) {
+            $permissions = $file->getPermissions();
+            try {
+                foreach($permissions as $permission) {
+                    if ($permission->type === 'anyone' && $permission->role === 'reader') {
+                        $this->service->permissions->delete($file->getId(), $permission->getId());
+                    }
+                }
+                return true;
+            } catch (Exception $e) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -486,7 +622,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      * Get normalised files array from Google_Service_Drive_DriveFile
      *
      * @param Google_Service_Drive_DriveFile $object
-     * @param String $dirname Parent directory full path
+     * @param String $dirname Parent directory Absolute path
      *
      * @return array Normalised files array
      */
@@ -507,7 +643,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     /**
      * Ensure directory and make dirctory if it does not exist
      *
-     * @param string $path Full path
+     * @param string $path Absolute path
      *
      * @return string Directory id
      */
@@ -526,7 +662,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     /**
      * Get items array of target dirctory
      *
-     * @param string $dirname Full path
+     * @param string $dirname Absolute path
      * @param bool $recursive
      * @param number $maxResults
      *
@@ -543,6 +679,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         $parameters = [
             'maxResults' => $maxResults? : 1000,
             'fields' => self::FETCHFIELDS,
+            'spaces' => $this->spaces,
             'q' => sprintf('trashed = false and "%s" in parents', $parentId)
         ];
         $pageToken = NULL;
@@ -584,7 +721,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     /**
      * Get file oblect Google_Service_Drive_DriveFile
      *
-     * @param string $path Full path
+     * @param string $path Absolute path
      *
      * @return Google_Service_Drive_DriveFile|null
      */
@@ -611,6 +748,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         $obj = $this->service->files->listFiles([
             'maxResults' => 1,
             'fields' => self::FETCHFIELDS,
+            'spaces' => $this->spaces,
             'q' => $q
         ]);
         $files = [];
@@ -630,7 +768,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     /**
      * Get file/dirctory id
      *
-     * @param string $path Full path
+     * @param string $path Absolute path
      *
      * @return string|false
      */
@@ -651,15 +789,28 @@ class GoogleDriveAdapter extends AbstractAdapter
      *
      * @return string|false
      */
-    protected function getDownloadUrl($file)
+    protected function getDownloadUrl($file, $parmanent = false)
     {
-        if (strpos($file->mimeType, 'application/vnd.google-apps') !== 0 && $url = $file->getSelfLink()) {
-            return $url . '?alt=media';
-        } else
-            if (($links = $file->getExportLinks()) && count($links) > 0) {
-                $links = array_values($links);
-                return $links[0];
+        try {
+            if (strpos($file->mimeType, 'application/vnd.google-apps') !== 0) {
+                if ($parmanent) {
+                    if ($url = $file->getWebContentLink()) {
+                        return str_replace('&export=download', '', $url);
+                    }
+                } else {
+                    if ($url = $file->getSelfLink()) {
+                        return $url . '?alt=media';
+                    }
+                }
+            } else {
+                if (($links = $file->getExportLinks()) && count($links) > 0) {
+                    $links = array_values($links);
+                    return $links[0];
+                }
             }
+        } catch (Exception $e) {
+            return false;
+        }
         return false;
     }
 
@@ -776,7 +927,15 @@ class GoogleDriveAdapter extends AbstractAdapter
 
             if (is_a($obj, 'Google_Service_Drive_DriveFile')) {
                 $this->cacheFileObjects[$path] = $obj;
-                return $this->normaliseObject($obj, Util::dirname($path));
+                $result = $this->normaliseObject($obj, Util::dirname($path));
+
+                if ($visibility = $config->get('visibility')) {
+                    if ($this->setVisibility($this->removePathPrefix($path), $visibility)) {
+                        $result['visibility'] = $visibility;
+                    }
+                }
+
+                return $result;
             }
         }
 
