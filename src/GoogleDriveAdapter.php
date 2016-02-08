@@ -226,7 +226,6 @@ class GoogleDriveAdapter extends AbstractAdapter
                 $file->setParents([ $parent ]);
 
                 if ($this->cacheFileObjects[$newpath] = $this->service->files->copy($srcId, $file)) {
-                    debug($this->cacheFileObjects[$newpath]);
                     if ($this->getRawVisibility($path) === AdapterInterface::VISIBILITY_PUBLIC) {
                         $this->publish($newpath);
                     } else {
