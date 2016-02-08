@@ -32,5 +32,4 @@ $filesystem = new \League\Flysystem\Filesystem($adapter);
 
 ## TODO
 
-* Visibility function to be enable
 * Unit tests to be written
