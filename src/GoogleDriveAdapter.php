@@ -703,7 +703,7 @@ class GoogleDriveAdapter extends AbstractAdapter
                     $parameters['pageToken'] = $pageToken;
                 }
                 $fileObjs = $gFiles->listFiles($parameters);
-                if (is_a($fileObjs, 'Google_Service_Drive_FileList')) {
+                if ($fileObjs instanceof Google_Service_Drive_FileList) {
                     foreach ($fileObjs as $obj) {
                         $name = str_replace('/', $this->driveSlash, $obj->getTitle());
                         $pathName = $dirname . '/' . $name;
@@ -765,7 +765,7 @@ class GoogleDriveAdapter extends AbstractAdapter
             'q' => $q
         ]);
         $files = [];
-        if (is_a($obj, 'Google_Service_Drive_FileList')) {
+        if ($obj instanceof Google_Service_Drive_FileList) {
             $files = $obj->getItems();
         }
         
@@ -850,7 +850,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         $file->setMimeType(self::DIRMIME);
         
         $obj = $this->service->files->insert($file);
-        if (is_a($obj, 'Google_Service_Drive_DriveFile')) {
+        if ($obj instanceof Google_Service_Drive_DriveFile) {
             $this->cacheFileObjects[$name] = $obj;
         }
         return $obj;
@@ -944,7 +944,7 @@ class GoogleDriveAdapter extends AbstractAdapter
                 }
             }
             
-            if (is_a($obj, 'Google_Service_Drive_DriveFile')) {
+            if ($obj instanceof Google_Service_Drive_DriveFile) {
                 $this->cacheFileObjects[$path] = $obj;
                 $result = $this->normaliseObject($obj, Util::dirname($path));
                 
