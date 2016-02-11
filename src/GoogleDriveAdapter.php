@@ -80,6 +80,13 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     private $cacheFileObjects = [];
 
+    /**
+     * Cache of hasDir
+     *
+     * @var array
+     */
+    private $cacheHasDirs = [];
+
     public function __construct(Google_Service_Drive $service, $prefix = null, $options = [])
     {
         $this->service = $service;
@@ -268,12 +275,12 @@ class GoogleDriveAdapter extends AbstractAdapter
                     if ($this->service->files->patch($id, $file, [
                         'fields' => 'parents'
                     ])) {
-                        unset($this->cacheFileObjects[$path]);
+                        unset($this->cacheFileObjects[$path], $this->cacheHasDirs[$path]);
                         return true;
                     }
                 } else {
                     if ($this->service->files->trash($id)) {
-                        unset($this->cacheFileObjects[$path]);
+                        unset($this->cacheFileObjects[$path], $this->cacheHasDirs[$path]);
                         return true;
                     }
                 }
@@ -531,6 +538,25 @@ class GoogleDriveAdapter extends AbstractAdapter
     }
 
     /**
+     * Has child directory
+     *
+     * @param string $path
+     *            Relative path
+     *            
+     * @return bool
+     */
+    public function hasDir($path)
+    {
+        $path = $this->applyPathPrefix($path);
+        if (isset($this->cacheHasDirs[$path])) {
+            return $this->cacheHasDirs[$path];
+        } else {
+            return (bool) $this->getItems($path, false, 1, 'mimeType = "' . self::DIRMIME . '"');
+        }
+        return true;
+    }
+
+    /**
      * Get the object permissions presented as a visibility.
      *
      * @param string $path
@@ -655,16 +681,18 @@ class GoogleDriveAdapter extends AbstractAdapter
      * @param string $path
      *            Absolute path
      *            
-     * @return string Directory id
+     * @return string|false Directory id
      */
     protected function ensureDirectory($path)
     {
         $dirId = $this->getFileId($path);
         if (! $dirId) {
             list ($dirName, $fileName) = $this->splitPath($path);
-            $pdirId = $this->ensureDirectory($dirName);
-            $folder = $this->createDirectory($fileName, $pdirId);
+            if (! ($pdirId = $this->ensureDirectory($dirName)) || ! ($folder = $this->createDirectory($fileName, $pdirId))) {
+                return false;
+            }
             $dirId = $folder->id;
+            $this->cacheHasDirs[$dirName] = true;
         }
         return $dirId;
     }
@@ -676,10 +704,11 @@ class GoogleDriveAdapter extends AbstractAdapter
      *            Absolute path
      * @param bool $recursive            
      * @param number $maxResults            
+     * @param string $query            
      *
      * @return array Items array
      */
-    protected function getItems($dirname, $recursive = false, $maxResults = 0)
+    protected function getItems($dirname, $recursive = false, $maxResults = 0, $query = '')
     {
         if (! $parentId = $this->getFileId($dirname)) {
             return [];
@@ -693,8 +722,13 @@ class GoogleDriveAdapter extends AbstractAdapter
             'spaces' => $this->spaces,
             'q' => sprintf('trashed = false and "%s" in parents', $parentId)
         ];
+        if ($query) {
+            $parameters['q'] .= ' and (' . $query . ')';
+            ;
+        }
         $pageToken = NULL;
         $gFiles = $this->service->files;
+        $this->cacheHasDirs[$dirname] = false;
         
         do {
             try {
@@ -713,8 +747,13 @@ class GoogleDriveAdapter extends AbstractAdapter
                         $this->cacheFileObjects[$pathName] = $obj;
                         $result = $this->normaliseObject($obj, $dirname);
                         $results[$pathName] = $result;
-                        if ($recursive && $result['type'] === 'dir') {
-                            $results = array_merge($results, $this->getItems($pathName, true));
+                        if ($result['type'] === 'dir') {
+                            if ($this->cacheHasDirs[$dirname] === false) {
+                                $this->cacheHasDirs[$dirname] = true;
+                            }
+                            if ($recursive) {
+                                $results = array_merge($results, $this->getItems($pathName, true));
+                            }
                         }
                     }
                     $pageToken = $fileObjs->getNextPageToken();
@@ -836,7 +875,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      *
      * @return Google_Service_Drive_DriveFile|NULL
      */
-    protected function createDirectory($name, $parentId = null)
+    protected function createDirectory($name, $parentId)
     {
         $parent = new Google_Service_Drive_ParentReference();
         $parent->setId($parentId);
@@ -848,11 +887,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         ]);
         $file->setMimeType(self::DIRMIME);
         
-        $obj = $this->service->files->insert($file);
-        if ($obj instanceof Google_Service_Drive_DriveFile) {
-            $this->cacheFileObjects[$name] = $obj;
-        }
-        return $obj;
+        return $this->service->files->insert($file);
     }
 
     /**
