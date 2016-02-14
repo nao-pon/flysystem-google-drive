@@ -4,6 +4,7 @@ namespace Hypweb\Flysystem\GoogleDrive;
 use Google_Service_Drive;
 use Google_Service_Drive_DriveFile;
 use Google_Service_Drive_FileList;
+use Google_Service_Drive_ChildList;
 use Google_Service_Drive_ParentReference;
 use Google_Service_Drive_Permission;
 use Google_Http_MediaFileUpload;
@@ -44,6 +45,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     protected static $defaultOptions = [
         'spaces' => 'drive',
         'driveSlash' => '  ',
+        'setHasDirOnGetItems' => false,
         'publishPermission' => [
             'type' => 'anyone',
             'role' => 'reader',
@@ -87,6 +89,13 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     private $cacheHasDirs = [];
 
+    /**
+     * Is enabled setHasDir on getItems
+     * 
+     * @var bool
+     */
+    private $setHasDirOnGetItems = false;
+
     public function __construct(Google_Service_Drive $service, $prefix = null, $options = [])
     {
         $this->service = $service;
@@ -96,6 +105,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         
         $this->spaces = $options['spaces'];
         $this->driveSlash = $options['driveSlash'];
+        $this->setHasDirOnGetItems = $options['setHasDirOnGetItems'];
         $this->publishPermission = $options['publishPermission'];
     }
 
@@ -548,12 +558,52 @@ class GoogleDriveAdapter extends AbstractAdapter
     public function hasDir($path)
     {
         $path = $this->applyPathPrefix($path);
-        if (isset($this->cacheHasDirs[$path])) {
-            return $this->cacheHasDirs[$path];
-        } else {
-            return (bool) $this->getItems($path, false, 1, 'mimeType = "' . self::DIRMIME . '"');
+        
+        if ($this->setHasDirOnGetItems) {
+            list ($parentDir) = $this->splitPath($path);
+            if ($parentDir && ! isset($this->cacheHasDirs[$path])) {
+                $this->getItems($parentDir);
+            }
         }
-        return true;
+        
+        if (! isset($this->cacheHasDirs[$path])) {
+            $this->cacheHasDirs[$path] = (bool) $this->getItems($path, false, 1, 'mimeType = "' . self::DIRMIME . '"');
+        }
+        return $this->cacheHasDirs[$path];
+    }
+
+    /**
+     * Do cache cacheHasDirs with batch request
+     * 
+     * @param array $targets [[path => id],...]
+     * 
+     * @return void
+     */
+    protected function setHasDir($targets)
+    {
+        $service = $this->service;
+        $client = $service->getClient();
+        $opts = [
+            'maxResults' => 1,
+            'q' => sprintf('trashed = false and mimeType = "%s"', self::DIRMIME)
+        ];
+        $paths = [];
+        $client->setUseBatch(true);
+        $batch = $service->createBatch();
+        $i = 0;
+        foreach ($targets as $path => $id) {
+            $request = $service->children->listChildren($id, $opts);
+            $key = ++ $i;
+            $batch->add($request, (string) $key);
+            $paths['response-' . $key] = $path;
+        }
+        $results = $batch->execute();
+        foreach ($results as $key => $result) {
+            if ($result instanceof Google_Service_Drive_ChildList) {
+                $this->cacheHasDirs[$paths[$key]] = (bool) $result->getItems();
+            }
+        }
+        $client->setUseBatch(false);
     }
 
     /**
@@ -729,6 +779,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         $pageToken = NULL;
         $gFiles = $this->service->files;
         $this->cacheHasDirs[$dirname] = false;
+        $setHasDir = [];
         
         do {
             try {
@@ -748,6 +799,9 @@ class GoogleDriveAdapter extends AbstractAdapter
                         $result = $this->normaliseObject($obj, $dirname);
                         $results[$pathName] = $result;
                         if ($result['type'] === 'dir') {
+                            if ($this->setHasDirOnGetItems) {
+                                $setHasDir[$pathName] = $obj->getId();
+                            }
                             if ($this->cacheHasDirs[$dirname] === false) {
                                 $this->cacheHasDirs[$dirname] = true;
                             }
@@ -764,6 +818,10 @@ class GoogleDriveAdapter extends AbstractAdapter
                 $pageToken = NULL;
             }
         } while ($pageToken && $maxResults === 0);
+        
+        if ($setHasDir) {
+            $this->setHasDir($setHasDir);
+        }
         
         return $results;
     }
