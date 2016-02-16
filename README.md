@@ -20,10 +20,10 @@ $client->refreshToken('[your refresh token]');
 
 $service = new \Google_Service_Drive($client);
 
-$adapter = new \Hypweb\Flysystem\GoogleDrive\GoogleDriveAdapter($service, '[path as root]');
+$adapter = new \Hypweb\Flysystem\GoogleDrive\GoogleDriveAdapter($service, '['root' or folder ID]');
 /* Recommended cached adapter use */
 // $adapter = new \League\Flysystem\Cached\CachedAdapter(
-//     new \Hypweb\Flysystem\GoogleDrive\GoogleDriveAdapter($service, '[path as root]'),
+//     new \Hypweb\Flysystem\GoogleDrive\GoogleDriveAdapter($service, '['root' or folder ID]'),
 //     new \League\Flysystem\Cached\Storage\Memory()
 // );
 
