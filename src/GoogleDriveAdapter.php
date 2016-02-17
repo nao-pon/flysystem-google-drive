@@ -660,7 +660,7 @@ class GoogleDriveAdapter extends AbstractAdapter
             $paths = explode('/', $path);
             $fileName = array_pop($paths);
             if ($getParentId) {
-                $dirName = array_pop($paths);
+                $dirName = $paths? array_pop($paths) : '';
             } else {
                 $dirName = join('/', $paths);
             }
