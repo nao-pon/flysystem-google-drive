@@ -78,7 +78,7 @@ if ($useCache) {
 // Google Drive elFinder Volume driver
 $gdrive = [
     'driver'     => 'Flysystem',
-    'alias'      => 'GoogleDrive flysystem',
+    'alias'      => 'GoogleDrive',
     'filesystem' =>  new \League\Flysystem\Filesystem($adapter),
     'fscache'    => $cache
 ];
