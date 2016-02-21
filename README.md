@@ -30,6 +30,71 @@ $adapter = new \Hypweb\Flysystem\GoogleDrive\GoogleDriveAdapter($service, '['roo
 $filesystem = new \League\Flysystem\Filesystem($adapter);
 ```
 
+### Usage to with [elFinder](https://github.com/Studio-42/elFinder)
+
+```bash
+composer require barryvdh/elfinder-flysystem-driver
+composer require nao-pon/flysystem-google-drive
+```
+
+```php
+// Load composer autoloader
+require 'vender/autoload.php';
+
+// Google API Client
+$client = new \Google_Client();
+$client->setClientId('xxxxx CLIENTID xxxxx');
+$client->setClientSecret('xxxxx CLIENTSECRET xxxxx');
+$client->refreshToken('xxxxx REFRESH TOKEN xxxxx');
+
+// Google Drive Adapter
+$googleDrive = new \Hypweb\Flysystem\GoogleDrive\GoogleDriveAdapter(
+	new \Google_Service_Drive($client), // Client service
+	'root',                             // Holder ID as root ('root' or Holder ID)
+	[ 'useHasDir' => true ]             // options (elFinder need hasDir method)
+);
+
+// Make Flysystem adapter and cache object
+$useCache = true;
+if ($useCache) {
+	// Example to Flysystem cacheing
+	$cache = new \League\Flysystem\Cached\Storage\Adapter(
+		new \League\Flysystem\Adapter\Local('flycache'),
+		'gdcache',
+		300
+	);
+
+	// Flysystem cached adapter
+	$adapter = new \League\Flysystem\Cached\CachedAdapter(
+		$googleDrive,
+		$cache
+	);
+} else {
+	// Not use cached adapter
+	$cache = null;
+	$adapter = $googleDrive;
+}
+
+// Google Drive elFinder Volume driver
+$gdrive = [
+    'driver'     => 'Flysystem',
+    'alias'      => 'GoogleDrive flysystem',
+    'filesystem' =>  new \League\Flysystem\Filesystem($adapter),
+    'fscache'    => $cache
+];
+
+// elFinder volume roots options
+$elFinderOpts = [
+	'roots' => []
+];
+
+$elFinderOpts['roots'][] = $gdrive;
+
+// run elFinder
+$connector = new elFinderConnector(new elFinder($elFinderOpts));
+$connector->run();
+```
+
 ## TODO
 
 * Unit tests to be written
