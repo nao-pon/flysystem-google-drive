@@ -541,7 +541,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      *            
      * @return void
      */
-    protected function setHasDir($targets)
+    protected function setHasDir($targets, $object)
     {
         $service = $this->service;
         $client = $service->getClient();
@@ -562,10 +562,11 @@ class GoogleDriveAdapter extends AbstractAdapter
         $results = $batch->execute();
         foreach ($results as $key => $result) {
             if ($result instanceof Google_Service_Drive_ChildList) {
-                $this->cacheHasDirs[$paths[$key]] = (bool) $result->getItems();
+                $object[$paths[$key]]['hasdir'] = $this->cacheHasDirs[$paths[$key]] = (bool) $result->getItems();
             }
         }
         $client->setUseBatch(false);
+        return $object;
     }
 
     /**
@@ -697,8 +698,8 @@ class GoogleDriveAdapter extends AbstractAdapter
         }
         if ($result['type'] === 'dir') {
             $result['size'] = 0;
-            if (isset($this->cacheHasDirs[$id])) {
-                $result['hasdir'] = $this->cacheHasDirs[$id];
+            if ($this->useHasDir) {
+                $result['hasdir'] = isset($this->cacheHasDirs[$id])? $this->cacheHasDirs[$id] : false;
             }
         }
         return $result;
@@ -717,11 +718,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     protected function getItems($dirname, $recursive = false, $maxResults = 0, $query = '')
     {
-        // if ($dirname) {
         list (, $itemId) = $this->splitPath($dirname);
-        // } else {
-        // $itemId = $this->root;
-        // }
         
         $maxResults = min($maxResults, 1000);
         $results = [];
@@ -751,13 +748,14 @@ class GoogleDriveAdapter extends AbstractAdapter
                         $id = $obj->getId();
                         $this->cacheFileObjects[$id] = $obj;
                         $result = $this->normaliseObject($obj, $dirname);
-                        $results[] = $result;
+                        $results[$id] = $result;
                         if ($result['type'] === 'dir') {
                             if ($this->useHasDir) {
                                 $setHasDir[$id] = $id;
                             }
                             if ($this->cacheHasDirs[$itemId] === false) {
                                 $this->cacheHasDirs[$itemId] = true;
+                                unset($setHasDir[$itemId]);
                             }
                             if ($recursive) {
                                 $results = array_merge($results, $this->getItems($pathName, true));
@@ -774,9 +772,9 @@ class GoogleDriveAdapter extends AbstractAdapter
         } while ($pageToken && $maxResults === 0);
         
         if ($setHasDir) {
-            $this->setHasDir($setHasDir);
+            $results = $this->setHasDir($setHasDir, $results);
         }
-        return $results;
+        return array_values($results);
     }
 
     /**
