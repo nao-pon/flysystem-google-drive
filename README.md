@@ -54,11 +54,17 @@ $googleDrive = new \Hypweb\Flysystem\GoogleDrive\GoogleDriveAdapter(
 	[ 'useHasDir' => true ]             // options (elFinder need hasDir method)
 );
 
+// Extended cached strage adapter class for cache enabled of hasDir() method
+class myCachedStrageAdapter extends \League\Flysystem\Cached\Storage\Adapter
+{
+    use \Hypweb\Flysystem\Cached\Extra\Hasdir;
+}
+
 // Make Flysystem adapter and cache object
 $useCache = true;
 if ($useCache) {
 	// Example to Flysystem cacheing
-	$cache = new \League\Flysystem\Cached\Storage\Adapter(
+	$cache = new myCachedStrageAdapter(
 		new \League\Flysystem\Adapter\Local('flycache'),
 		'gdcache',
 		300
