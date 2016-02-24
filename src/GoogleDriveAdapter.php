@@ -922,7 +922,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         }
         
         if (! $mime) {
-            $mime = Util::guessMimeType($path, $isResource ? '' : $contents);
+            $mime = Util::guessMimeType($fileName, $isResource ? '' : $contents);
         }
         $file->setMimeType($mime);
         
