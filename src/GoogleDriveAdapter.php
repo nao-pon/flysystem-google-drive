@@ -654,7 +654,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     protected function splitPath($path, $getParentId = true)
     {
-        if ($path === '') {
+        if ($path === '' || $path === '/') {
             $fileName = $this->root;
             $dirName = '';
         } else {
