@@ -54,6 +54,14 @@ class GoogleDriveAdapter extends AbstractAdapter
             'type' => 'anyone',
             'role' => 'reader',
             'withLink' => true
+        ],
+        'appsExportMap' => [
+            'application/vnd.google-apps.document' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.google-apps.spreadsheet' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.google-apps.drawing' => 'application/pdf',
+            'application/vnd.google-apps.presentation' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'application/vnd.google-apps.script' => 'application/vnd.google-apps.script+json',
+            'default' => 'application/pdf'
         ]
     ];
 
@@ -93,6 +101,13 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     private $useHasDir = false;
 
+    /**
+     * Options array
+     *
+     * @var array
+     */
+    private $options = [];
+
     public function __construct(Google_Service_Drive $service, $root = null, $options = [])
     {
         if (! $root) {
@@ -102,11 +117,11 @@ class GoogleDriveAdapter extends AbstractAdapter
         $this->setPathPrefix($root);
         $this->root = $root;
         
-        $options = array_replace_recursive(static::$defaultOptions, $options);
+        $this->options = array_replace_recursive(static::$defaultOptions, $options);
         
-        $this->spaces = $options['spaces'];
-        $this->useHasDir = $options['useHasDir'];
-        $this->publishPermission = $options['publishPermission'];
+        $this->spaces = $this->options['spaces'];
+        $this->useHasDir = $this->options['useHasDir'];
+        $this->publishPermission = $this->options['publishPermission'];
     }
 
     /**
@@ -901,23 +916,16 @@ class GoogleDriveAdapter extends AbstractAdapter
         if (strpos($file->mimeType, 'application/vnd.google-apps') !== 0) {
             return 'https://www.googleapis.com/drive/v3/files/' . $file->getId() . '?alt=media';
         } else {
-            // $content = $this->service->files->export($file->getId(), 'application/pdf', [
-            // 'alt' => 'media'
-            // ]);
-            // debug($content);
-            // debug($file->getId());
-            return 'https://www.googleapis.com/drive/v3/files/' . $file->getId() . '/export?mimeType=application%2Fpdf';
+            $mimeMap = $this->options['appsExportMap'];
+            if (isset($mimeMap[$file->getMimeType()])) {
+                $mime = $mimeMap[$file->getMimeType()];
+            } else {
+                $mime = $mimeMap['default'];
+            }
+            $mime = rawurlencode($mime);
+            
+            return 'https://www.googleapis.com/drive/v3/files/' . $file->getId() . '/export?mimeType=' . $mime;
         }
-        // if (strpos($file->mimeType, 'application/vnd.google-apps') !== 0) {
-        // if ($url = $file->getWebContentLink()) {
-        // return str_replace('&export=download', '', $url);
-        // }
-        // } else {
-        // if (($links = $file->getExportLinks()) && count($links) > 0) {
-        // $links = array_values($links);
-        // return $links[0];
-        // }
-        // }
         
         return false;
     }
