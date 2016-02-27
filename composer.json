@@ -11,7 +11,7 @@
     "require": {
         "php": ">=5.4.0",
         "league/flysystem": "~1.0",
-        "google/apiclient": "~1.1|^2.0.0@RC",
+        "google/apiclient": "2.x@dev",
         "nao-pon/flysystem-cached-extra": "1.0.x"
     },
     "require-dev": {
