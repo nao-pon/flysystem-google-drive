@@ -268,7 +268,6 @@ class GoogleDriveAdapter extends AbstractAdapter
     public function delete($path)
     {
         list ($parentId, $id) = $this->splitPath($path);
-        $result = true;
         $file = $this->service->files->get($id, [
             'fields' => 'parents'
         ]);
@@ -821,7 +820,7 @@ class GoogleDriveAdapter extends AbstractAdapter
                                 unset($setHasDir[$itemId]);
                             }
                             if ($recursive) {
-                                $results = array_merge($results, $this->getItems($pathName, true));
+                                $results = array_merge($results, $this->getItems($id, true, $maxResults, $query));
                             }
                         }
                     }
