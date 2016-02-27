@@ -468,7 +468,6 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     public function listContents($dirname = '', $recursive = false)
     {
-        $dirname = $this->applyPathPrefix($dirname);
         return array_values($this->getItems($dirname, $recursive));
     }
 
@@ -481,7 +480,6 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     public function getMetadata($path)
     {
-        $path = $this->applyPathPrefix($path);
         if ($obj = $this->getFileObject($path)) {
             if ($obj instanceof Google_Service_Drive_DriveFile) {
                 return $this->normaliseObject($obj, Util::dirname($path));
@@ -558,20 +556,8 @@ class GoogleDriveAdapter extends AbstractAdapter
     public function getVisibility($path)
     {
         return [
-            'visibility' => $this->getRawVisibility($this->applyPathPrefix($path))
+            'visibility' => $this->getRawVisibility($path)
         ];
-    }
-
-    /**
-     * Apply the path prefix.
-     *
-     * @param string $path            
-     *
-     * @return string prefixed path
-     */
-    public function applyPathPrefix($path)
-    {
-        return $path;
     }
     
     // /////////////////- ORIGINAL METHODS -///////////////////
