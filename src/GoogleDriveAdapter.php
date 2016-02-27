@@ -587,7 +587,8 @@ class GoogleDriveAdapter extends AbstractAdapter
     public function getUrl($path)
     {
         if ($this->publish($path)) {
-            return $this->getDownloadUrl($this->getFileObject($path));
+            $url = $this->getFileObject($path)->getWebContentLink();
+            return str_replace('export=download', 'export=media', $url);
         }
         return false;
     }
