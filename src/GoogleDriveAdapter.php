@@ -815,7 +815,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         if ($fileObj instanceof Google_Service_Drive_DriveFile) {
             if ($hasdir && $fileObj->mimeType === self::DIRMIME) {
                 if ($hasdir instanceof Google_Service_Drive_ChildList) {
-                    $this->cacheHasDirs[$itemId] = (bool) $hasdir->getItems();
+                    $this->cacheHasDirs[$fileObj->getId()] = (bool) $hasdir->getItems();
                 }
             }
         } else {
