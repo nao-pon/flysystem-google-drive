@@ -12,7 +12,7 @@
         "php": ">=5.4.0",
         "league/flysystem": "~1.0",
         "google/apiclient": "~1.1",
-        "nao-pon/flysystem-cached-extra": "1.0.x"
+        "nao-pon/flysystem-cached-extra": "~1.0"
     },
     "require-dev": {
         "phpunit/phpunit": "~4.0",
@@ -28,8 +28,8 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-master": "1.0-dev",
-            "dev-api_v3": "1.1-dev"
+            "dev-api_v2": "1.0-dev",
+            "dev-master": "1.1-dev"
         }
     }
 }
