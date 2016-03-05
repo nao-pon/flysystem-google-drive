@@ -9,6 +9,10 @@
 ```bash
 composer require nao-pon/flysystem-google-drive
 ```
+OR Use Google Drive API V3 with 1.1.x
+```bash
+composer require nao-pon/flysystem-google-drive:1.1.*@dev google/apiclient:~2.0@rc
+```
 
 ## Usage
 
