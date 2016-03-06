@@ -63,6 +63,7 @@ $googleDrive = new \Hypweb\Flysystem\GoogleDrive\GoogleDriveAdapter(
 class myCachedStrageAdapter extends \League\Flysystem\Cached\Storage\Adapter
 {
     use \Hypweb\Flysystem\Cached\Extra\Hasdir;
+    use \Hypweb\Flysystem\Cached\Extra\DisableEnsureParentDirectories;
 }
 
 // Make Flysystem adapter and cache object
