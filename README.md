@@ -6,12 +6,13 @@
 
 ## Installation
 
+- Use Google Drive API V2 with 1.0.x
 ```bash
-composer require nao-pon/flysystem-google-drive
+composer require nao-pon/flysystem-google-drive:~1.0 google/apiclient:~1
 ```
-OR Use Google Drive API V3 with 1.1.x
+- Use Google Drive API V3 with 1.1.x
 ```bash
-composer require nao-pon/flysystem-google-drive:1.1.*@dev google/apiclient:~2.0@rc
+composer require nao-pon/flysystem-google-drive:~1.1 google/apiclient:~2.0@rc
 ```
 
 ## Usage
