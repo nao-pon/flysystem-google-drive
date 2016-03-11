@@ -9,6 +9,10 @@
 ```bash
 composer require nao-pon/flysystem-google-drive
 ```
+OR Use Google Drive API V3 with 1.1.x
+```bash
+composer require nao-pon/flysystem-google-drive:1.1.*@dev google/apiclient:~2.0@rc
+```
 
 ## Usage
 
@@ -35,6 +39,7 @@ $filesystem = new \League\Flysystem\Filesystem($adapter);
 ```bash
 composer require barryvdh/elfinder-flysystem-driver
 composer require nao-pon/flysystem-google-drive
+composer require league/flysystem-cached-adapter
 ```
 
 ```php
@@ -58,6 +63,7 @@ $googleDrive = new \Hypweb\Flysystem\GoogleDrive\GoogleDriveAdapter(
 class myCachedStrageAdapter extends \League\Flysystem\Cached\Storage\Adapter
 {
     use \Hypweb\Flysystem\Cached\Extra\Hasdir;
+    use \Hypweb\Flysystem\Cached\Extra\DisableEnsureParentDirectories;
 }
 
 // Make Flysystem adapter and cache object
