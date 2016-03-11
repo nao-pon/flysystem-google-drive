@@ -318,11 +318,11 @@ class GoogleDriveAdapter extends AbstractAdapter
             $this->cacheFileObjects[$name] = $folder; // for confirmation by getMetaData() oe has() while in this connection
             $this->cacheFileObjects[$itemId] = $folder;
             $this->cacheHasDirs[$itemId] = false;
-            $path_parts = pathinfo($name);
+            $path_parts = $this->splitFileExtension($name);
             $result = [
                 'path' => $dirname . '/' . $itemId,
                 'filename' => $path_parts['filename'],
-                'extension' => isset($path_parts['extension'])? $path_parts['extension'] : ''
+                'extension' => $path_parts['extension']
             ];
             return $result;
         }
@@ -740,6 +740,25 @@ class GoogleDriveAdapter extends AbstractAdapter
     }
 
     /**
+     * Item name splits to filename and extension
+     * This function supported include '/' in item name
+     *
+     * @param string $name            
+     *
+     * @return array [ 'filename' => $filename , 'extension' => $extension ]
+     */
+    protected function splitFileExtension($name)
+    {
+        $filename = $extension = '';
+        $name_parts = explode('.', $name);
+        if (isset($name_parts[1])) {
+            $extension = array_pop($name_parts);
+        }
+        $filename = join('.', $name_parts);
+        return compact('filename', 'extension');
+    }
+
+    /**
      * Get normalised files array from Google_Service_Drive_DriveFile
      *
      * @param Google_Service_Drive_DriveFile $object            
@@ -751,12 +770,12 @@ class GoogleDriveAdapter extends AbstractAdapter
     protected function normaliseObject(Google_Service_Drive_DriveFile $object, $dirname)
     {
         $id = $object->getId();
-        $path_parts = pathinfo($object->getName());
+        $path_parts = $this->splitFileExtension($object->getName());
         $result = [];
         $result['type'] = $object->mimeType === self::DIRMIME ? 'dir' : 'file';
         $result['path'] = ($dirname ? ($dirname . '/') : '') . $id;
         $result['filename'] = $path_parts['filename'];
-        $result['extension'] = isset($path_parts['extension'])? $path_parts['extension'] : '';
+        $result['extension'] = $path_parts['extension'];
         $result['timestamp'] = strtotime($object->getModifiedTime());
         if ($result['type'] === 'file') {
             $result['mimetype'] = $object->mimeType;
