@@ -304,9 +304,11 @@ class GoogleDriveAdapter extends AbstractAdapter
             $this->cacheFileObjects[$name] = $folder; // for confirmation by getMetaData() oe has() while in this connection
             $this->cacheFileObjects[$itemId] = $folder;
             $this->cacheHasDirs[$itemId] = false;
+            $path_parts = pathinfo($name);
             $result = [
                 'path' => $dirname . '/' . $itemId,
-                'filename' => $name
+                'filename' => $path_parts['filename'],
+                'extension' => isset($path_parts['extension'])? $path_parts['extension'] : ''
             ];
             return $result;
         }
@@ -687,10 +689,12 @@ class GoogleDriveAdapter extends AbstractAdapter
     protected function normaliseObject(Google_Service_Drive_DriveFile $object, $dirname)
     {
         $id = $object->getId();
+        $path_parts = pathinfo($object->getTitle());
         $result = [];
         $result['type'] = $object->mimeType === self::DIRMIME ? 'dir' : 'file';
         $result['path'] = ($dirname ? ($dirname . '/') : '') . $id;
-        $result['filename'] = $object->getTitle();
+        $result['filename'] = $path_parts['filename'];
+        $result['extension'] = isset($path_parts['extension'])? $path_parts['extension'] : '';
         $result['timestamp'] = strtotime($object->getModifiedDate());
         if ($result['type'] === 'file') {
             $result['mimetype'] = $object->mimeType;
