@@ -39,8 +39,7 @@ $filesystem = new \League\Flysystem\Filesystem($adapter);
 
 ```bash
 composer require barryvdh/elfinder-flysystem-driver
-composer require nao-pon/flysystem-google-drive
-composer require league/flysystem-cached-adapter
+composer require nao-pon/flysystem-google-drive:~1.1 google/apiclient:~2.0@rc
 ```
 
 ```php
