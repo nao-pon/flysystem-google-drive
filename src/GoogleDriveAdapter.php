@@ -26,7 +26,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      *
      * @var string
      */
-    const FETCHFIELDS_GET = 'id,name,mimeType,modifiedTime,parents,permissions,size,webContentLink';
+    const FETCHFIELDS_GET = 'id,name,mimeType,modifiedTime,parents,permissions,size,webContentLink,webViewLink';
 
     /**
      * MIME tyoe of directory
@@ -574,8 +574,13 @@ class GoogleDriveAdapter extends AbstractAdapter
     public function getUrl($path)
     {
         if ($this->publish($path)) {
-            $url = $this->getFileObject($path)->getWebContentLink();
-            return str_replace('export=download', 'export=media', $url);
+            $obj = $this->getFileObject($path);
+            if ($url = $obj->getWebContentLink()) {
+                return str_replace('export=download', 'export=media', $url);
+            }
+            if ($url = $obj->getWebViewLink()) {
+                return $url;
+            }
         }
         return false;
     }
