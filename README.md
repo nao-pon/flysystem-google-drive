@@ -38,7 +38,7 @@ $filesystem = new \League\Flysystem\Filesystem($adapter);
 ### Usage to with [elFinder](https://github.com/Studio-42/elFinder)
 
 ```bash
-composer require barryvdh/elfinder-flysystem-driver
+composer require nao-pon/elfinder-flysystem-driver-ext
 composer require nao-pon/flysystem-google-drive:~1.1 google/apiclient:~2.0@rc
 ```
 
