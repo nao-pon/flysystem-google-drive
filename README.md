@@ -12,7 +12,7 @@ composer require nao-pon/flysystem-google-drive:~1.0 google/apiclient:~1
 ```
 - Use Google Drive API V3 with 1.1.x
 ```bash
-composer require nao-pon/flysystem-google-drive:~1.1 google/apiclient:~2.0@rc
+composer require nao-pon/flysystem-google-drive:~1.1 google/apiclient:~2.0
 ```
 
 ## Usage
