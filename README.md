@@ -89,10 +89,12 @@ if ($useCache) {
 
 // Google Drive elFinder Volume driver
 $gdrive = [
-    'driver'     => 'FlysystemExt',
-    'alias'      => 'GoogleDrive',
-    'filesystem' =>  new \League\Flysystem\Filesystem($adapter),
-    'fscache'    => $cache
+    'driver'       => 'FlysystemExt',
+    'alias'        => 'GoogleDrive',
+    'rootCssClass' => 'elfinder-navbar-root-googledrive',
+    'filesystem'   =>  new \League\Flysystem\Filesystem($adapter),
+    'fscache'      => $cache,
+    'cacheDisableEnsureParentDirectories' => true
 ];
 
 // elFinder volume roots options
