@@ -93,7 +93,6 @@ $gdrive = [
     'driver'       => 'FlysystemExt',
     'filesystem'   =>  new \League\Flysystem\Filesystem($adapter),
     'fscache'      => $cache,
-    'cacheDisableEnsureParentDirectories' => true,
     'separator'    => '/',
     // optional
     'alias'        => 'GoogleDrive',
