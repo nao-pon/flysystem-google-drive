@@ -6,16 +6,18 @@
 
 ## Installation
 
-- Use Google Drive API V2 with 1.0.x
+- For Google Drive API V2
 ```bash
 composer require nao-pon/flysystem-google-drive:~1.0
 ```
-- Use Google Drive API V3 with 1.1.x
+- For Google Drive API V3 "**Recommended**"
 ```bash
 composer require nao-pon/flysystem-google-drive:~1.1
 ```
 
 ## Usage
+#### follow [Google Docs](https://developers.google.com/drive/v3/web/enable-sdk) to obtain your `ClientId, ClientSecret & refreshToken`
+- you can also check [This Exmaple](https://github.com/nao-pon/flysystem-google-drive/blob/master/example/GoogleDriveAdapter.php) for a better understanding.
 
 ```php
 $client = new \Google_Client();
