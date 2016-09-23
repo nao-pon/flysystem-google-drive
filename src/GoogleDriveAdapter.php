@@ -319,7 +319,7 @@ class GoogleDriveAdapter extends AbstractAdapter
             $this->cacheHasDirs[$itemId] = false;
             $path_parts = $this->splitFileExtension($name);
             $result = [
-                'path' => $dirname . '/' . $itemId,
+                'path' => Util::dirname($dirname) . '/' . $itemId,
                 'filename' => $path_parts['filename'],
                 'extension' => $path_parts['extension']
             ];
@@ -812,7 +812,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         $maxResults = min($maxResults, 1000);
         $results = [];
         $parameters = [
-            'pageSize' => $maxResults ?  : 1000,
+            'pageSize' => $maxResults ?: 1000,
             'fields' => self::FETCHFIELDS_LIST,
             'spaces' => $this->spaces,
             'q' => sprintf('trashed = false and "%s" in parents', $itemId)
