@@ -1003,13 +1003,28 @@ class GoogleDriveAdapter extends AbstractAdapter
             }
         }
 
+        if ($isResource) {
+            // set chunk size (max: 100MB)
+            $chunkSizeBytes = 100 * 1024 * 1024;
+            $memory = $this->getIniBytes('memory_limit');
+            if ($memory) {
+                $chunkSizeBytes = min([
+                    $chunkSizeBytes,
+                    (intval($memory / 4 / 256) * 256)
+                ]);
+            }
+            if ($fstat['size'] < $chunkSizeBytes) {
+                $isResource = false;
+                $contents = stream_get_contents($contents);
+            }
+        }
+
         if (! $mime) {
             $mime = Util::guessMimeType($fileName, $isResource ? '' : $contents);
         }
         $file->setMimeType($mime);
 
         if ($isResource) {
-            $chunkSizeBytes = 1 * 1024 * 1024;
             $client = $this->service->getClient();
             // Call the API with the media upload, defer so it doesn't immediately return.
             $client->setDefer(true);
@@ -1042,6 +1057,8 @@ class GoogleDriveAdapter extends AbstractAdapter
             if ($status != false) {
                 $obj = $status;
             }
+
+            $client->setDefer(false);
         } else {
             $params = [
                 'data' => $contents,
@@ -1096,5 +1113,35 @@ class GoogleDriveAdapter extends AbstractAdapter
             }
         }
         return $giantChunk;
+    }
+
+    /**
+     * Return bytes from php.ini value
+     *
+     * @param string $iniName
+     * @param string $val
+     * @return number
+     */
+    protected function getIniBytes($iniName = '', $val = '')
+    {
+        if ($iniName !== '') {
+            $val = ini_get($iniName);
+            if ($val === false) {
+                return 0;
+            }
+        }
+        $val = trim($val, "bB \t\n\r\0\x0B");
+        $last = strtolower($val[strlen($val) - 1]);
+        switch ($last) {
+            case 't':
+                $val *= 1024;
+            case 'g':
+                $val *= 1024;
+            case 'm':
+                $val *= 1024;
+            case 'k':
+                $val *= 1024;
+        }
+        return (int) $val;
     }
 }
