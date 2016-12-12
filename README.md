@@ -17,7 +17,7 @@ composer require nao-pon/flysystem-google-drive:~1.1
 
 ## Usage
 #### follow [Google Docs](https://developers.google.com/drive/v3/web/enable-sdk) to obtain your `ClientId, ClientSecret & refreshToken`
-- you can also check [This Exmaple](https://github.com/nao-pon/flysystem-google-drive/blob/master/example/GoogleUpload.php) for a better understanding.
+- you can also check [This Example](https://github.com/nao-pon/flysystem-google-drive/blob/master/example/GoogleUpload.php) for a better understanding.
 
 ```php
 $client = new \Google_Client();
