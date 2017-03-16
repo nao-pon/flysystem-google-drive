@@ -113,6 +113,10 @@ $connector = new elFinderConnector(new elFinder($elFinderOpts));
 $connector->run();
 ```
 
+## Tips
+
+- [Setup a Laravel Storage driver with Google Drive API](https://gist.github.com/ivanvermeyen/cc7c59c185daad9d4e7cb8c661d7b89b)
+
 ## TODO
 
 * Unit tests to be written
