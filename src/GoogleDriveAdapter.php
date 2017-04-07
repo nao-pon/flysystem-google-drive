@@ -962,9 +962,11 @@ class GoogleDriveAdapter extends AbstractAdapter
         ]);
         $file->setMimeType(self::DIRMIME);
 
-        return $this->service->files->create($file, [
+        $obj = $this->service->files->create($file, [
             'fields' => self::FETCHFIELDS_GET
         ]);
+
+        return ($obj instanceof Google_Service_Drive_DriveFile) ? $obj : false;
     }
 
     /**
