@@ -1009,11 +1009,11 @@ class GoogleDriveAdapter extends AbstractAdapter
             // set chunk size (max: 100MB)
             $chunkSizeBytes = 100 * 1024 * 1024;
             $memory = $this->getIniBytes('memory_limit');
-            if ($memory) {
-                $chunkSizeBytes = min([
+            if ($memory > 0) {
+                $chunkSizeBytes = max(262144 , min([
                     $chunkSizeBytes,
                     (intval($memory / 4 / 256) * 256)
-                ]);
+                ]));
             }
             if ($fstat['size'] < $chunkSizeBytes) {
                 $isResource = false;
