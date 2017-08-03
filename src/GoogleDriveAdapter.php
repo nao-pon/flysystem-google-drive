@@ -1134,6 +1134,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         }
         $val = trim($val, "bB \t\n\r\0\x0B");
         $last = strtolower($val[strlen($val) - 1]);
+        $val = (int)$val;
         switch ($last) {
             case 't':
                 $val *= 1024;
@@ -1144,6 +1145,6 @@ class GoogleDriveAdapter extends AbstractAdapter
             case 'k':
                 $val *= 1024;
         }
-        return (int) $val;
+        return $val;
     }
 }
