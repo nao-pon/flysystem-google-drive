@@ -847,7 +847,7 @@ class GoogleDriveAdapter extends AbstractAdapter
                                 unset($setHasDir[$itemId]);
                             }
                             if ($recursive) {
-                                $results = array_merge($results, $this->getItems($id, true, $maxResults, $query));
+                                $results = array_merge($results, $this->getItems($result['path'], true, $maxResults, $query));
                             }
                         }
                     }
