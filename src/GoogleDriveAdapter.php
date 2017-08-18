@@ -369,8 +369,12 @@ class GoogleDriveAdapter extends AbstractAdapter
      *
      * @return array|false
      */
-    public function readStream($path, $redirect = [])
+    public function readStream($path)
     {
+        $redirect = [];
+        if (func_num_args() > 1) {
+            $redirect = func_get_arg(1);
+        }
         if (! $redirect) {
             $redirect = [
                 'cnt' => 0,
