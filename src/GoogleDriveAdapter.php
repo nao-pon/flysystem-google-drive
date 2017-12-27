@@ -29,7 +29,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     const FETCHFIELDS_GET = 'id,name,mimeType,modifiedTime,parents,permissions,size,webContentLink,webViewLink';
 
     /**
-     * MIME tyoe of directory
+     * MIME type of directory
      *
      * @var string
      */
