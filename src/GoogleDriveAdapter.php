@@ -385,7 +385,7 @@ class GoogleDriveAdapter extends AbstractAdapter
             if ($file = $this->getFileObject($path)) {
                 $dlurl = $this->getDownloadUrl($file);
                 $client = $this->service->getClient();
-                if ($client->isUsingApplicationDefaultCredentials())
+                if ($client->isUsingApplicationDefaultCredentials()) {
                     $token = $client->fetchAccessTokenWithAssertion();
                 } else {
                     $token = $client->getAccessToken();
