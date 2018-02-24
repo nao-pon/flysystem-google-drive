@@ -125,6 +125,16 @@ class GoogleDriveAdapter extends AbstractAdapter
     }
 
     /**
+     * Gets the service (Google_Service_Drive)
+     *
+     * @return object  Google_Service_Drive
+     */
+    public function getService()
+    {
+        return $this->service;
+    }
+
+    /**
      * Write a new file.
      *
      * @param string $path
