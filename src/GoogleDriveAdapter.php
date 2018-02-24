@@ -29,7 +29,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     const FETCHFIELDS_GET = 'id,name,mimeType,modifiedTime,parents,permissions,size,webContentLink,webViewLink';
 
     /**
-     * MIME type of directory
+     * MIME tyoe of directory
      *
      * @var string
      */
@@ -385,9 +385,16 @@ class GoogleDriveAdapter extends AbstractAdapter
             if ($file = $this->getFileObject($path)) {
                 $dlurl = $this->getDownloadUrl($file);
                 $client = $this->service->getClient();
-                $token = $client->getAccessToken();
+                if ($client->isUsingApplicationDefaultCredentials())
+                    $token = $client->fetchAccessTokenWithAssertion();
+                } else {
+                    $token = $client->getAccessToken();
+                }
                 $access_token = '';
                 if (is_array($token)) {
+                    if (empty($token['access_token']) && !empty($token['refresh_token'])) {
+                        $token = $client->fetchAccessTokenWithRefreshToken();
+                    }
                     $access_token = $token['access_token'];
                 } else {
                     if ($token = @json_decode($client->getAccessToken())) {
@@ -458,7 +465,6 @@ class GoogleDriveAdapter extends AbstractAdapter
                 return compact('stream');
             }
         }
-
         return false;
     }
 
