@@ -19,7 +19,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      *
      * @var string
      */
-    const FETCHFIELDS_LIST = 'files(id,mimeType,modifiedTime,name,parents,permissions,size,webContentLink),nextPageToken';
+    const FETCHFIELDS_LIST = 'files(id,mimeType,modifiedTime,name,description,hasThumbnail,thumbnailLink,parents,permissions,size,webContentLink),nextPageToken';
 
     /**
      * Fetch fields setting for get
@@ -800,6 +800,9 @@ class GoogleDriveAdapter extends AbstractAdapter
         $result['path'] = ($dirname ? ($dirname . '/') : '') . $id;
         $result['filename'] = $path_parts['filename'];
         $result['extension'] = $path_parts['extension'];
+        $result['description'] = $object->description;
+        $result['thumbnailLink'] = $object->thumbnailLink;
+        $result['hasThumbnail'] = $object->hasThumbnail;
         $result['timestamp'] = strtotime($object->getModifiedTime());
         if ($result['type'] === 'file') {
             $result['mimetype'] = $object->mimeType;
