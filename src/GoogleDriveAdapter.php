@@ -19,7 +19,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      *
      * @var string
      */
-    const FETCHFIELDS_GET = 'id,name,mimeType,modifiedTime,parents,permissions,size,webContentLink,webViewLink';
+    const FETCHFIELDS_GET = 'id,name,mimeType,modifiedTime,parents,permissions,size,webContentLink,webViewLink,description';
 
     /**
      * Fetch fields setting for list
@@ -830,6 +830,9 @@ class GoogleDriveAdapter extends AbstractAdapter
         $result['filename'] = $path_parts['filename'];
         $result['extension'] = $path_parts['extension'];
         $result['timestamp'] = strtotime($object->getModifiedTime());
+        $result['webContentLink'] = $object->getWebContentLink();
+        $result['description'] = $object->getDescription();
+
         if ($result['type'] === 'file') {
             $result['mimetype'] = $object->mimeType;
             $result['size'] = (int) $object->getSize();
@@ -840,6 +843,7 @@ class GoogleDriveAdapter extends AbstractAdapter
                 $result['hasdir'] = isset($this->cacheHasDirs[$id]) ? $this->cacheHasDirs[$id] : false;
             }
         }
+
         // attach additional fields
         if ($this->additionalFields) {
             foreach($this->additionalFields as $field) {
