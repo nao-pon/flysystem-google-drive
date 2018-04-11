@@ -517,7 +517,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     public function listContents($dirname = '', $recursive = false)
     {
-        return array_values($this->getItems($dirname, $recursive));
+        return $this->getItems($dirname, $recursive);
     }
 
     /**
