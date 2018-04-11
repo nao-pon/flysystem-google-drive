@@ -63,6 +63,11 @@ class GoogleDriveAdapter extends AbstractAdapter
             'application/vnd.google-apps.presentation' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
             'application/vnd.google-apps.script' => 'application/vnd.google-apps.script+json',
             'default' => 'application/pdf'
+        ],
+        'defaultParams' => [
+            'file.list' => [
+                'supportsTeamDrives' => 'false'
+            ]
         ]
     ];
 
@@ -868,15 +873,12 @@ class GoogleDriveAdapter extends AbstractAdapter
 
         $maxResults = min($maxResults, 1000);
         $results = [];
-        $parameters = [
+        $parameters = array_merge($this->getDefaultListItemsParameters(), [
             'pageSize' => $maxResults ?: 1000,
-            'fields' => $this->fetchfieldsList,
-            'spaces' => $this->spaces,
             'q' => sprintf('trashed = false and "%s" in parents', $itemId)
-        ];
+            ]);
         if ($query) {
             $parameters['q'] .= ' and (' . $query . ')';
-            ;
         }
         $pageToken = NULL;
         $gFiles = $this->service->files;
@@ -1203,5 +1205,18 @@ class GoogleDriveAdapter extends AbstractAdapter
                 $val *= 1024;
         }
         return $val;
+    }
+
+    /**
+     * Returns default parameters for fiels.list
+     * @return array
+     * @see \Google_Service_Drive_Resource_Files
+     */
+    protected function getDefaultListItemsParameters()
+    {
+        return array_replace($this->options['defaultParams']['file.list'], [
+            'fields' => $this->fetchfieldsList,
+            'spaces' => $this->spaces
+            ]);
     }
 }
