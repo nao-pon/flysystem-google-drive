@@ -65,7 +65,7 @@ class GoogleDriveAdapter extends AbstractAdapter
             'default' => 'application/pdf'
         ],
         'defaultParams' => [
-            'file.list' => [
+            'files.list' => [
                 'supportsTeamDrives' => 'false'
             ]
         ]
@@ -1208,13 +1208,13 @@ class GoogleDriveAdapter extends AbstractAdapter
     }
 
     /**
-     * Returns default parameters for fiels.list
+     * Returns default parameters for files.list
      * @return array
      * @see \Google_Service_Drive_Resource_Files
      */
     protected function getDefaultListItemsParameters()
     {
-        return array_replace($this->options['defaultParams']['file.list'], [
+        return array_replace($this->options['defaultParams']['files.list'], [
             'fields' => $this->fetchfieldsList,
             'spaces' => $this->spaces
             ]);
