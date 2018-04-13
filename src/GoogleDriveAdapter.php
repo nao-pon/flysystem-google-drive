@@ -19,7 +19,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      *
      * @var string
      */
-    const FETCHFIELDS_GET = 'id,name,mimeType,modifiedTime,parents,permissions,size,webContentLink,webViewLink,teamDriveId';
+    const FETCHFIELDS_GET = 'id,name,mimeType,modifiedTime,parents,permissions,size,webContentLink,webViewLink';
 
     /**
      * Fetch fields setting for list
@@ -67,7 +67,11 @@ class GoogleDriveAdapter extends AbstractAdapter
         // Default parameters for each command
         // see https://developers.google.com/drive/v3/reference/files
         // ex. 'defaultParams' => ['files.list' => ['includeTeamDriveItems' => true]]
-        'defaultParams' => []
+        'defaultParams' => [],
+        // Team Drive Id
+        'teamDriveId' => null,
+        // Corpora value for files.list with the Team Drive
+        'corpora' => 'teamDrive'
     ];
 
     /**
@@ -164,6 +168,10 @@ class GoogleDriveAdapter extends AbstractAdapter
         $this->fetchfieldsList = str_replace('FETCHFIELDS_GET', $this->fetchfieldsGet, self::FETCHFIELDS_LIST);
         if (isset($this->options['defaultParams']) && is_array($this->options['defaultParams'])) {
             $this->defaultParams = $this->options['defaultParams'];
+        }
+
+        if ($this->options['teamDriveId']) {
+            $this->setTeamDriveId($this->options['teamDriveId'], $this->options['corpora']);
         }
     }
 
@@ -1278,13 +1286,13 @@ class GoogleDriveAdapter extends AbstractAdapter
     public function setTeamDriveId($teamDriveId, $corpora = 'teamDrive')
     {
         $this->enableTeamDriveSupport();
-        $this->defaultParams = array_merge_recursive([
+        $this->defaultParams = array_merge_recursive($this->defaultParams, [
             'files.list' => [
                 'corpora' => $corpora,
                 'includeTeamDriveItems' => true,
                 'teamDriveId' => $teamDriveId
             ]
-        ], $this->defaultParams);
+        ]);
 
         $this->setPathPrefix($teamDriveId);
         $this->root = $teamDriveId;
