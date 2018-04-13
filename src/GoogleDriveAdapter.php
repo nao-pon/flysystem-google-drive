@@ -1257,6 +1257,10 @@ class GoogleDriveAdapter extends AbstractAdapter
             ], ['supportsTeamDrives' => true]),
             $this->defaultParams
         );
+
+        if (!in_array('teamDriveId', $this->additionalFields, true)) {
+            $this->additionalFields[] = 'teamDriveId';
+        }
     }
 
     /**
