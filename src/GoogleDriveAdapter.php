@@ -19,7 +19,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      *
      * @var string
      */
-    const FETCHFIELDS_GET = 'id,name,mimeType,modifiedTime,parents,permissions,size,webContentLink,webViewLink';
+    const FETCHFIELDS_GET = 'id,name,mimeType,modifiedTime,parents,permissions,size,webContentLink,webViewLink,teamDriveId';
 
     /**
      * Fetch fields setting for list
@@ -1237,5 +1237,52 @@ class GoogleDriveAdapter extends AbstractAdapter
         } else {
             return $params;
         }
+    }
+
+    /**
+     * Enables Team Drive support by changing default parameters
+     *
+     * @return void
+     *
+     * @see https://developers.google.com/drive/v3/reference/files
+     * @see \Google_Service_Drive_Resource_Files
+     */
+    public function enableTeamDriveSupport()
+    {
+        $this->defaultParams = array_merge_recursive(
+            array_fill_keys([
+                'files.copy', 'files.create', 'files.delete',
+                'files.trash', 'files.get', 'files.list', 'files.update',
+                'files.watch'
+            ], ['supportsTeamDrives' => true]),
+            $this->defaultParams
+        );
+    }
+
+    /**
+     * Selects Team Drive to operate by changing default parameters
+     *
+     * @return void
+     *
+     * @param   string   $teamDriveId   Team Drive id
+     * @param   string   $corpora       Corpora value for files.list
+     *
+     * @see https://developers.google.com/drive/v3/reference/files
+     * @see https://developers.google.com/drive/v3/reference/files/list
+     * @see \Google_Service_Drive_Resource_Files
+     */
+    public function setTeamDriveId($teamDriveId, $corpora = 'teamDrive')
+    {
+        $this->enableTeamDriveSupport();
+        $this->defaultParams = array_merge_recursive([
+            'files.list' => [
+                'corpora' => $corpora,
+                'includeTeamDriveItems' => true,
+                'teamDriveId' => $teamDriveId
+            ]
+        ], $this->defaultParams);
+
+        $this->setPathPrefix($teamDriveId);
+        $this->root = $teamDriveId;
     }
 }
