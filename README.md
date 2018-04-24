@@ -57,7 +57,7 @@ $client->refreshToken('xxxxx REFRESH TOKEN xxxxx');
 // Google Drive Adapter
 $googleDrive = new \Hypweb\Flysystem\GoogleDrive\GoogleDriveAdapter(
 	new \Google_Service_Drive($client), // Client service
-	'root',                             // Holder ID as root ('root' or Holder ID)
+	'root',                             // Folder ID as root ('root' or Folder ID)
 	[ 'useHasDir' => true ]             // options (elFinder need hasDir method)
 );
 
