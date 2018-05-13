@@ -140,7 +140,7 @@ class GoogleDriveAdapter extends AbstractAdapter
 
     /**
      * Default parameters of each commands
-     * 
+     *
      * @var array
      */
     private $defaultParams = [];
@@ -824,7 +824,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     protected function splitFileExtension($name)
     {
-        $filename = $extension = '';
+        $extension = '';
         $name_parts = explode('.', $name);
         if (isset($name_parts[1])) {
             $extension = array_pop($name_parts);
@@ -846,7 +846,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     {
         $id = $object->getId();
         $path_parts = $this->splitFileExtension($object->getName());
-        $result = [];
+        $result = ['name' => $object->getName()];
         $result['type'] = $object->mimeType === self::DIRMIME ? 'dir' : 'file';
         $result['path'] = ($dirname ? ($dirname . '/') : '') . $id;
         $result['filename'] = $path_parts['filename'];
@@ -1229,12 +1229,12 @@ class GoogleDriveAdapter extends AbstractAdapter
 
     /**
      * Apply optional parameters for each command
-     * 
+     *
      * @param   array   $params   The parameters
      * @param   string  $cmdName  The command name
-     * 
+     *
      * @return array
-     * 
+     *
      * @see https://developers.google.com/drive/v3/reference/files
      * @see \Google_Service_Drive_Resource_Files
      */
