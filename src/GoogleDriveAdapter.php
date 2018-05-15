@@ -115,14 +115,14 @@ class GoogleDriveAdapter extends AbstractAdapter
      *
      * @var string
      */
-    private $fetchfieldsGet = '';
+    private $fetchfieldsGet;
 
     /**
      * List of fetch field for lest
      *
      * @var string
      */
-    private $fetchfieldsList = '';
+    private $fetchfieldsList;
 
     /**
      * Additional fetch fields array
@@ -147,12 +147,8 @@ class GoogleDriveAdapter extends AbstractAdapter
 
     public function __construct(Google_Service_Drive $service, $root = null, $options = [])
     {
-        if (! $root) {
-            $root = 'root';
-        }
         $this->service = $service;
-        $this->setPathPrefix($root);
-        $this->root = $root;
+        $this->setPathPrefix($root !== null ? $root : 'root');
 
         $this->options = array_replace_recursive(static::$defaultOptions, $options);
 
