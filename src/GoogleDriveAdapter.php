@@ -71,7 +71,9 @@ class GoogleDriveAdapter extends AbstractAdapter
         // Team Drive Id
         'teamDriveId' => null,
         // Corpora value for files.list with the Team Drive
-        'corpora' => 'teamDrive'
+        'corpora' => 'teamDrive',
+        // Delete action 'trash' (Into trash) or 'delete' (Permanently delete)
+        'deleteAction' => 'trash'
     ];
 
     /**
@@ -341,15 +343,30 @@ class GoogleDriveAdapter extends AbstractAdapter
             if ($parents = $file->getParents()) {
                 $file = new Google_Service_Drive_DriveFile();
                 $opts = [];
+                $res = false;
                 if (count($parents) > 1) {
                     $opts['removeParents'] = $parentId;
                 } else {
-                    $file->setTrashed(true);
+                    if ($this->options['deleteAction'] === 'delete') {
+                        try {
+                            $this->service->files->delete($id);
+                        } catch (Google_Exception $e) {
+                            return false;
+                        }
+                        $res = true;
+                    } else {
+                        $file->setTrashed(true);
+                    }
                 }
-                if ($this->service->files->update($id, $file, $this->applyDefaultParams($opts, 'files.update'))) {
-                    unset($this->cacheFileObjects[$id], $this->cacheHasDirs[$id], $this->cacheFileObjectsByName[$parentId . '/' . $name]);
-                    return true;
+                if (!$res) {
+                    try {
+                        $this->service->files->update($id, $file, $this->applyDefaultParams($opts, 'files.update'));
+                    } catch (Google_Exception $e) {
+                        return false;
+                    }
                 }
+                unset($this->cacheFileObjects[$id], $this->cacheHasDirs[$id], $this->cacheFileObjectsByName[$parentId . '/' . $name]);
+                return true;
             }
         }
         return false;
