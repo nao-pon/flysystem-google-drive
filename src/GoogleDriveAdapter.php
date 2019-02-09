@@ -97,6 +97,13 @@ class GoogleDriveAdapter extends AbstractAdapter
     private $cacheFileObjects = [];
 
     /**
+     * Cache of file objects by ParentId/Name based
+     *
+     * @var array
+     */
+    private $cacheFileObjectsByName = [];
+
+    /**
      * Cache of hasDir
      *
      * @var array
@@ -272,7 +279,7 @@ class GoogleDriveAdapter extends AbstractAdapter
 
         if ($updatedFile) {
             $this->cacheFileObjects[$updatedFile->getId()] = $updatedFile;
-            $this->cacheFileObjects[$newName] = $updatedFile;
+            $this->cacheFileObjectsByName[$newParent . '/' . $newName] = $updatedFile;
             return true;
         }
 
@@ -305,7 +312,7 @@ class GoogleDriveAdapter extends AbstractAdapter
 
         if ($newFile instanceof Google_Service_Drive_DriveFile) {
             $this->cacheFileObjects[$newFile->getId()] = $newFile;
-            $this->cacheFileObjects[$fileName] = $newFile;
+            $this->cacheFileObjectsByName[$newParentId . '/' . $fileName] = $newFile;
             list ($newDir) = $this->splitPath($newpath);
             $newpath = (($newDir === $this->root) ? '' : ($newDir . '/')) . $newFile->getId();
             if ($this->getRawVisibility($path) === AdapterInterface::VISIBILITY_PUBLIC) {
@@ -329,6 +336,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     public function delete($path)
     {
         if ($file = $this->getFileObject($path)) {
+            $name = $file->getName();
             list ($parentId, $id) = $this->splitPath($path);
             if ($parents = $file->getParents()) {
                 $file = new Google_Service_Drive_DriveFile();
@@ -339,7 +347,7 @@ class GoogleDriveAdapter extends AbstractAdapter
                     $file->setTrashed(true);
                 }
                 if ($this->service->files->update($id, $file, $this->applyDefaultParams($opts, 'files.update'))) {
-                    unset($this->cacheFileObjects[$id], $this->cacheHasDirs[$id]);
+                    unset($this->cacheFileObjects[$id], $this->cacheHasDirs[$id], $this->cacheFileObjectsByName[$parentId . '/' . $name]);
                     return true;
                 }
             }
@@ -375,7 +383,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         $folder = $this->createDirectory($name, $pdirId);
         if ($folder) {
             $itemId = $folder->getId();
-            $this->cacheFileObjects[$name] = $folder; // for confirmation by getMetaData() oe has() while in this connection
+            $this->cacheFileObjectsByName[$pdirId . '/' . $name] = $folder; // for confirmation by getMetaData() oe has() while in this connection
             $this->cacheFileObjects[$itemId] = $folder;
             $this->cacheHasDirs[$itemId] = false;
             $path_parts = $this->splitFileExtension($name);
@@ -957,9 +965,11 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     protected function getFileObject($path, $checkDir = false)
     {
-        list (, $itemId) = $this->splitPath($path);
+        list ($parentId, $itemId) = $this->splitPath($path, true);
         if (isset($this->cacheFileObjects[$itemId])) {
             return $this->cacheFileObjects[$itemId];
+        } else if (isset($this->cacheFileObjectsByName[$parentId . '/' . $itemId])) {
+            return $this->cacheFileObjectsByName[$parentId . '/' . $itemId];
         }
 
         $service = $this->service;
@@ -1156,7 +1166,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         if ($obj instanceof Google_Service_Drive_DriveFile) {
             $this->cacheFileObjects[$obj->getId()] = $obj;
             if ($mode === 'insert') {
-                $this->cacheFileObjects[$fileName] = $obj;
+                $this->cacheFileObjectsByName[$parentId . '/' . $fileName] = $obj;
             }
             $result = $this->normaliseObject($obj, Util::dirname($path));
 
