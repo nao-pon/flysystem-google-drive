@@ -1299,8 +1299,10 @@ class GoogleDriveAdapter extends AbstractAdapter
                 'teamDriveId' => $teamDriveId
             ]
         ]);
-
-        $this->setPathPrefix($teamDriveId);
-        $this->root = $teamDriveId;
+        
+        if ($this->root === 'root') {
+            $this->setPathPrefix($teamDriveId);
+            $this->root = $teamDriveId;
+        }
     }
 }
