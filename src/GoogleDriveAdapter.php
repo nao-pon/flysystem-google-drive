@@ -19,7 +19,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      *
      * @var string
      */
-    const FETCHFIELDS_GET = 'id,name,mimeType,modifiedTime,parents,permissions,size,webContentLink,webViewLink';
+    const FETCHFIELDS_GET = 'id,name,mimeType,modifiedTime,parents,permissions,size,webContentLink,webViewLink,thumbnailLink';
 
     /**
      * Fetch fields setting for list
@@ -171,8 +171,8 @@ class GoogleDriveAdapter extends AbstractAdapter
 
         $this->fetchfieldsGet = self::FETCHFIELDS_GET;
         if ($this->options['additionalFetchField']) {
-             $this->fetchfieldsGet .= ',' . $this->options['additionalFetchField'];
-             $this->additionalFields = explode(',', $this->options['additionalFetchField']);
+            $this->fetchfieldsGet .= ',' . $this->options['additionalFetchField'];
+            $this->additionalFields = explode(',', $this->options['additionalFetchField']);
         }
         $this->fetchfieldsList = str_replace('FETCHFIELDS_GET', $this->fetchfieldsGet, self::FETCHFIELDS_LIST);
         if (isset($this->options['defaultParams']) && is_array($this->options['defaultParams'])) {
@@ -585,6 +585,19 @@ class GoogleDriveAdapter extends AbstractAdapter
     }
 
     /**
+     * Get the thumbnailLink of a file.
+     *
+     * @param string $path
+     *
+     * @return array|false
+     */
+    public function getThumbnailLink($path)
+    {
+        $meta = $this->getMetadata($path);
+        return ($meta && isset($meta['thumbnailLink'])) ? $meta : false;
+    }
+
+    /**
      * Get all the meta data of a file or directory.
      *
      * @param string $path
@@ -877,6 +890,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         $result['filename'] = $path_parts['filename'];
         $result['extension'] = $path_parts['extension'];
         $result['timestamp'] = strtotime($object->getModifiedTime());
+        $result['thumbnailLink'] = $object->getThumbnailLink();
         if ($result['type'] === 'file') {
             $result['mimetype'] = $object->mimeType;
             $result['size'] = (int) $object->getSize();
@@ -1316,7 +1330,7 @@ class GoogleDriveAdapter extends AbstractAdapter
                 'teamDriveId' => $teamDriveId
             ]
         ]);
-        
+
         if ($this->root === 'root') {
             $this->setPathPrefix($teamDriveId);
             $this->root = $teamDriveId;
