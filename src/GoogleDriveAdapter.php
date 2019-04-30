@@ -1163,7 +1163,7 @@ class GoogleDriveAdapter extends AbstractAdapter
 
         if ($fileSize <= $chunkSizeBytes) {
             // If the resource fits in a single chunk, we'll just upload it in a single request
-            return $this->uploadStringToGoogleDrive($localPath, $mime, stream_get_contents($resource));
+            return $this->uploadStringToGoogleDrive(stream_get_contents($resource), $localPath, $mime);
         }
 
         // Call the API with the media upload, defer so it doesn't immediately return.
