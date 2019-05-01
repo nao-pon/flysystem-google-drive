@@ -1167,9 +1167,9 @@ class GoogleDriveAdapter extends AbstractAdapter
         }
 
         // Call the API with the media upload, defer so it doesn't immediately return.
-        $request = $this->ensureDriveFileExists('', $localPath, $mime);
         $client = $this->service->getClient();
         $client->setDefer(true);
+        $request = $this->ensureDriveFileExists('', $localPath, $mime);
         $media = $this->getMediaFileUpload($client, $request, $mime, $chunkSizeBytes);
         $media->setFileSize($fileSize);
 
