@@ -1087,116 +1087,164 @@ class GoogleDriveAdapter extends AbstractAdapter
     protected function upload($path, $contents, Config $config)
     {
         list ($parentId, $fileName) = $this->splitPath($path);
-        $mode = 'update';
-        $mime = $config->get('mimetype');
-
-        $srcFile = $this->getFileObject($path);
-        $file = new Google_Service_Drive_DriveFile();
-        if (! $srcFile) {
-            $mode = 'insert';
-            $file->setName($fileName);
-            $file->setParents([
-                $parentId
-            ]);
-        }
-
-        $isResource = false;
+        $srcDriveFile = $this->getFileObject($path);
         if (is_resource($contents)) {
-            $fstat = @fstat($contents);
-            if (! empty($fstat['size'])) {
-                $isResource = true;
-            }
-            if (! $isResource) {
-                $contents = stream_get_contents($contents);
-            }
-        }
-
-        if ($isResource) {
-            // set chunk size (max: 100MB)
-            $chunkSizeBytes = 100 * 1024 * 1024;
-            $memory = $this->getIniBytes('memory_limit');
-            if ($memory > 0) {
-                $chunkSizeBytes = max(262144 , min([
-                    $chunkSizeBytes,
-                    (intval($memory / 4 / 256) * 256)
-                ]));
-            }
-            if ($fstat['size'] < $chunkSizeBytes) {
-                $isResource = false;
-                $contents = stream_get_contents($contents);
-            }
-        }
-
-        if (! $mime) {
-            $mime = Util::guessMimeType($fileName, $isResource ? '' : $contents);
-        }
-        $file->setMimeType($mime);
-
-        if ($isResource) {
-            $client = $this->service->getClient();
-            // Call the API with the media upload, defer so it doesn't immediately return.
-            $client->setDefer(true);
-            if ($mode === 'insert') {
-                $request = $this->service->files->create($file, $this->applyDefaultParams([
-                    'fields' => $this->fetchfieldsGet
-                ], 'files.create'));
-            } else {
-                $request = $this->service->files->update($srcFile->getId(), $file, $this->applyDefaultParams([
-                    'fields' => $this->fetchfieldsGet
-                ], 'files.update'));
-            }
-
-            // Create a media file upload to represent our upload process.
-            $media = new Google_Http_MediaFileUpload($client, $request, $mime, null, true, $chunkSizeBytes);
-            $media->setFileSize($fstat['size']);
-            // Upload the various chunks. $status will be false until the process is
-            // complete.
-            $status = false;
-            $handle = $contents;
-            while (! $status && ! feof($handle)) {
-                // read until you get $chunkSizeBytes from TESTFILE
-                // fread will never return more than 8192 bytes if the stream is read buffered and it does not represent a plain file
-                // An example of a read buffered file is when reading from a URL
-                $chunk = $this->readFileChunk($handle, $chunkSizeBytes);
-                $status = $media->nextChunk($chunk);
-            }
-            // The final value of $status will be the data from the API for the object
-            // that has been uploaded.
-            if ($status != false) {
-                $obj = $status;
-            }
-
-            $client->setDefer(false);
+            $uploadedDriveFile = $this->uploadResourceToGoogleDrive($contents, $parentId, $fileName, $srcDriveFile, $config->get('mimetype'));
         } else {
-            $params = [
-                'data' => $contents,
-                'uploadType' => 'media',
-                'fields' => $this->fetchfieldsGet
-            ];
-            if ($mode === 'insert') {
-                $obj = $this->service->files->create($file, $this->applyDefaultParams($params, 'files.create'));
-            } else {
-                $obj = $this->service->files->update($srcFile->getId(), $file, $this->applyDefaultParams($params, 'files.update'));
-            }
+            $uploadedDriveFile = $this->uploadStringToGoogleDrive($contents, $parentId, $fileName, $srcDriveFile, $config->get('mimetype'));
         }
 
-        if ($obj instanceof Google_Service_Drive_DriveFile) {
-            $this->cacheFileObjects[$obj->getId()] = $obj;
-            if ($mode === 'insert') {
-                $this->cacheFileObjectsByName[$parentId . '/' . $fileName] = $obj;
-            }
-            $result = $this->normaliseObject($obj, Util::dirname($path));
+        return $this->normaliseUploadedFile($uploadedDriveFile, $path, $config->get('visibility'));
+    }
 
-            if ($visibility = $config->get('visibility')) {
-                if ($this->setVisibility($path, $visibility)) {
-                    $result['visibility'] = $visibility;
-                }
-            }
-
-            return $result;
+    /**
+     * Detect the largest chunk size that can be used for uploading a file
+     *
+     * @return int
+     */
+    protected function detectChunkSizeBytes()
+    {
+        // Max and default chunk size of 100MB
+        $chunkSizeBytes = 100 * 1024 * 1024;
+        $memoryLimit = $this->getIniBytes('memory_limit');
+        if ($memoryLimit > 0) {
+            $availableMemory = $memoryLimit - $this->getMemoryUsedBytes();
+            /*
+             * We need some breathing room, so we only take 1/4th of the available memory for use in chunking (the divide by 4 does this).
+             * The chunk size must be a multiple of 256KB(262144).
+             * An example of why we need the breathing room is detecting the mime type for a file that is just small enough to fit into one chunk.
+             * In this scenario, we send the entire file off as a string to have the mime type detected. Unfortunately, this leads to the entire
+             * file being loaded into memory again, separately from the copy we're holding.
+             */
+            $chunkSizeBytes = max(262144, min($chunkSizeBytes, floor($availableMemory / 4 / 262144) * 262144));
         }
 
-        return false;
+        return (int)$chunkSizeBytes;
+    }
+
+    /**
+     * Normalise a Drive File that has been created
+     *
+     * @param Google_Service_Drive_DriveFile $uploadedFile
+     * @param string $localPath
+     * @param string $visibility
+     * @return array|bool
+     */
+    protected function normaliseUploadedFile($uploadedFile, $localPath, $visibility)
+    {
+        list ($parentId, $fileName) = $this->splitPath($localPath);
+
+        if (!($uploadedFile instanceof Google_Service_Drive_DriveFile)) {
+            return false;
+        }
+
+        $this->cacheFileObjects[$uploadedFile->getId()] = $uploadedFile;
+        if (! $this->getFileObject($localPath)) {
+            $this->cacheFileObjectsByName[$parentId . '/' . $fileName] = $uploadedFile;
+        }
+        $result = $this->normaliseObject($uploadedFile, Util::dirname($localPath));
+
+        if ($visibility && $this->setVisibility($localPath, $visibility)) {
+            $result['visibility'] = $visibility;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Upload a PHP resource stream to Google Drive
+     *
+     * @param resource $resource
+     * @param string $parentId
+     * @param string $fileName
+     * @param string $mime
+     * @return bool|Google_Service_Drive_DriveFile
+     */
+    protected function uploadResourceToGoogleDrive($resource, $parentId, $fileName, $srcDriveFile, $mime)
+    {
+        $chunkSizeBytes = $this->detectChunkSizeBytes();
+        $fileSize = $this->getFileSizeBytes($resource);
+
+        if ($fileSize <= $chunkSizeBytes) {
+            // If the resource fits in a single chunk, we'll just upload it in a single request
+            return $this->uploadStringToGoogleDrive(stream_get_contents($resource), $parentId, $fileName, $srcDriveFile, $mime);
+        }
+
+        $client = $this->service->getClient();
+        // Call the API with the media upload, defer so it doesn't immediately return.
+        $client->setDefer(true);
+        $request = $this->ensureDriveFileExists('', $parentId, $fileName, $srcDriveFile, $mime);
+        $client->setDefer(false);
+        $media = $this->getMediaFileUpload($client, $request, $mime, $chunkSizeBytes);
+        $media->setFileSize($fileSize);
+
+        // Upload chunks until we run out of file to upload; $status will be false until the process is complete.
+        $status = false;
+        while (! $status && ! feof($resource)) {
+            $chunk = $this->readFileChunk($resource, $chunkSizeBytes);
+            $status = $media->nextChunk($chunk);
+        }
+
+        // The final value of $status will be the data from the API for the object that has been uploaded.
+        return $status;
+    }
+
+    /**
+     * Upload a string to Google Drive
+     *
+     * @param string $contents
+     * @param string $parentId
+     * @param string $fileName
+     * @param string $mime
+     * @return Google_Service_Drive_DriveFile
+     */
+    protected function uploadStringToGoogleDrive($contents, $parentId, $fileName, $srcDriveFile, $mime)
+    {
+        return $this->ensureDriveFileExists($contents, $parentId, $fileName, $srcDriveFile, $mime);
+    }
+
+    /**
+     * Ensure that a file exists on Google Drive by creating it if it doesn't exist or updating it if it does
+     *
+     * @param string $contents
+     * @param string $parentId
+     * @param string $fileName
+     * @param string $mime
+     * @return Google_Service_Drive_DriveFile
+     */
+    protected function ensureDriveFileExists($contents, $parentId, $fileName, $srcDriveFile, $mime)
+    {
+        if (! $mime) {
+            $mime = Util::guessMimeType($fileName, $contents);
+        }
+
+        $driveFile = new Google_Service_Drive_DriveFile();
+
+        $mode = 'update';
+        if (! $srcDriveFile) {
+            $mode = 'insert';
+            $driveFile->setName($fileName);
+            $driveFile->setParents([$parentId]);
+        }
+
+        $driveFile->setMimeType($mime);
+
+        $params = ['fields' => $this->fetchfieldsGet];
+        if ($contents) {
+            $params['data'] = $contents;
+            $params['uploadType'] = 'media';
+        }
+        if ($mode === 'insert') {
+            $retrievedDriveFile = $this->service->files->create($driveFile, $this->applyDefaultParams($params, 'files.create'));
+        } else {
+            $retrievedDriveFile = $this->service->files->update(
+                $srcDriveFile->getId(),
+                $driveFile,
+                $this->applyDefaultParams($params, 'files.update')
+            );
+        }
+
+        return $retrievedDriveFile;
     }
 
     /**
@@ -1213,6 +1261,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         $giantChunk = '';
         while (! feof($handle)) {
             // fread will never return more than 8192 bytes if the stream is read buffered and it does not represent a plain file
+            // An example of a read buffered file is when reading from a URL
             $chunk = fread($handle, 8192);
             $byteCount += strlen($chunk);
             $giantChunk .= $chunk;
@@ -1252,6 +1301,43 @@ class GoogleDriveAdapter extends AbstractAdapter
                 $val *= 1024;
         }
         return $val;
+    }
+
+    /**
+     * Return the number of memory bytes allocated to PHP
+     *
+     * @return int
+     */
+    protected function getMemoryUsedBytes()
+    {
+        return memory_get_usage(true);
+    }
+
+    /**
+     * Get the size of a file resource
+     *
+     * @param $resource
+     *
+     * @return int
+     */
+    protected function getFileSizeBytes($resource)
+    {
+        return fstat($resource)['size'];
+    }
+
+    /**
+     * Get a MediaFileUpload
+     *
+     * @param $client
+     * @param $request
+     * @param $mime
+     * @param $chunkSizeBytes
+     *
+     * @return Google_Http_MediaFileUpload
+     */
+    protected function getMediaFileUpload($client, $request, $mime, $chunkSizeBytes)
+    {
+        return new Google_Http_MediaFileUpload($client, $request, $mime, null, true, $chunkSizeBytes);
     }
 
     /**
@@ -1316,7 +1402,7 @@ class GoogleDriveAdapter extends AbstractAdapter
                 'teamDriveId' => $teamDriveId
             ]
         ]);
-        
+
         if ($this->root === 'root') {
             $this->setPathPrefix($teamDriveId);
             $this->root = $teamDriveId;
