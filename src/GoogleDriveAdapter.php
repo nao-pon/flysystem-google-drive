@@ -1086,10 +1086,12 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     protected function upload($path, $contents, Config $config)
     {
+        list ($parentId, $fileName) = $this->splitPath($path);
+        $srcDriveFile = $this->getFileObject($path);
         if (is_resource($contents)) {
-            $uploadedDriveFile = $this->uploadResourceToGoogleDrive($contents, $path, $config->get('mimetype'));
+            $uploadedDriveFile = $this->uploadResourceToGoogleDrive($contents, $parentId, $fileName, $srcDriveFile, $config->get('mimetype'));
         } else {
-            $uploadedDriveFile = $this->uploadStringToGoogleDrive($contents, $path, $config->get('mimetype'));
+            $uploadedDriveFile = $this->uploadStringToGoogleDrive($contents, $parentId, $fileName, $srcDriveFile, $config->get('mimetype'));
         }
 
         return $this->normaliseUploadedFile($uploadedDriveFile, $path, $config->get('visibility'));
@@ -1109,11 +1111,12 @@ class GoogleDriveAdapter extends AbstractAdapter
             $availableMemory = $memoryLimit - $this->getMemoryUsedBytes();
             /*
              * We need some breathing room, so we only take 1/4th of the available memory for use in chunking (the divide by 4 does this).
+             * The chunk size must be a multiple of 256KB(262144).
              * An example of why we need the breathing room is detecting the mime type for a file that is just small enough to fit into one chunk.
              * In this scenario, we send the entire file off as a string to have the mime type detected. Unfortunately, this leads to the entire
              * file being loaded into memory again, separately from the copy we're holding.
              */
-            $chunkSizeBytes = max(262144, min($chunkSizeBytes, floor($availableMemory / 262144) * 262144 / 4));
+            $chunkSizeBytes = max(262144, min($chunkSizeBytes, floor($availableMemory / 4 / 262144) * 262144));
         }
 
         return (int)$chunkSizeBytes;
@@ -1152,35 +1155,35 @@ class GoogleDriveAdapter extends AbstractAdapter
      * Upload a PHP resource stream to Google Drive
      *
      * @param resource $resource
-     * @param string $localPath
+     * @param string $parentId
+     * @param string $fileName
      * @param string $mime
      * @return bool|Google_Service_Drive_DriveFile
      */
-    protected function uploadResourceToGoogleDrive($resource, $localPath, $mime)
+    protected function uploadResourceToGoogleDrive($resource, $parentId, $fileName, $srcDriveFile, $mime)
     {
-        $fileSize = $this->getFileSizeBytes($resource);
         $chunkSizeBytes = $this->detectChunkSizeBytes();
+        $fileSize = $this->getFileSizeBytes($resource);
 
         if ($fileSize <= $chunkSizeBytes) {
             // If the resource fits in a single chunk, we'll just upload it in a single request
-            return $this->uploadStringToGoogleDrive(stream_get_contents($resource), $localPath, $mime);
+            return $this->uploadStringToGoogleDrive(stream_get_contents($resource), $parentId, $fileName, $srcDriveFile, $mime);
         }
 
-        // Call the API with the media upload, defer so it doesn't immediately return.
         $client = $this->service->getClient();
+        // Call the API with the media upload, defer so it doesn't immediately return.
         $client->setDefer(true);
-        $request = $this->ensureDriveFileExists('', $localPath, $mime);
+        $request = $this->ensureDriveFileExists('', $parentId, $fileName, $srcDriveFile, $mime);
+        $client->setDefer(false);
         $media = $this->getMediaFileUpload($client, $request, $mime, $chunkSizeBytes);
         $media->setFileSize($fileSize);
 
         // Upload chunks until we run out of file to upload; $status will be false until the process is complete.
         $status = false;
-        $handle = $resource;
-        while (! $status && ! feof($handle)) {
-            $chunk = $this->readFileChunk($handle, $chunkSizeBytes);
+        while (! $status && ! feof($resource)) {
+            $chunk = $this->readFileChunk($resource, $chunkSizeBytes);
             $status = $media->nextChunk($chunk);
         }
-        $client->setDefer(false);
 
         // The final value of $status will be the data from the API for the object that has been uploaded.
         return $status;
@@ -1190,32 +1193,31 @@ class GoogleDriveAdapter extends AbstractAdapter
      * Upload a string to Google Drive
      *
      * @param string $contents
-     * @param string $localPath
+     * @param string $parentId
+     * @param string $fileName
      * @param string $mime
      * @return Google_Service_Drive_DriveFile
      */
-    protected function uploadStringToGoogleDrive($contents, $localPath, $mime)
+    protected function uploadStringToGoogleDrive($contents, $parentId, $fileName, $srcDriveFile, $mime)
     {
-        return $this->ensureDriveFileExists($contents, $localPath, $mime);
+        return $this->ensureDriveFileExists($contents, $parentId, $fileName, $srcDriveFile, $mime);
     }
 
     /**
      * Ensure that a file exists on Google Drive by creating it if it doesn't exist or updating it if it does
      *
      * @param string $contents
-     * @param string $localPath
+     * @param string $parentId
+     * @param string $fileName
      * @param string $mime
      * @return Google_Service_Drive_DriveFile
      */
-    protected function ensureDriveFileExists($contents, $localPath, $mime)
+    protected function ensureDriveFileExists($contents, $parentId, $fileName, $srcDriveFile, $mime)
     {
-        list ($parentId, $fileName) = $this->splitPath($localPath);
-
         if (! $mime) {
             $mime = Util::guessMimeType($fileName, $contents);
         }
 
-        $srcDriveFile = $this->getFileObject($localPath);
         $driveFile = new Google_Service_Drive_DriveFile();
 
         $mode = 'update';
@@ -1232,7 +1234,6 @@ class GoogleDriveAdapter extends AbstractAdapter
             $params['data'] = $contents;
             $params['uploadType'] = 'media';
         }
-
         if ($mode === 'insert') {
             $retrievedDriveFile = $this->service->files->create($driveFile, $this->applyDefaultParams($params, 'files.create'));
         } else {
