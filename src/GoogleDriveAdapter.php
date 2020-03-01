@@ -822,6 +822,7 @@ class GoogleDriveAdapter extends AbstractAdapter
             $fileName = $this->root;
             $dirName = '';
         } else {
+            $path = str_replace('\\/', chr(7), $path);
             $paths = explode('/', $path);
             $fileName = array_pop($paths);
             if ($getParentId) {
@@ -835,7 +836,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         }
         return [
             $dirName,
-            $fileName
+            str_replace(chr(7), '/', $fileName)
         ];
     }
 
