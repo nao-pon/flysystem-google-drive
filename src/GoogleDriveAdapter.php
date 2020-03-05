@@ -818,11 +818,14 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     protected function splitPath($path, $getParentId = true)
     {
+        $useSlashSub = defined('EXT_FLYSYSTEM_SLASH_SUBSTITUTE');
         if ($path === '' || $path === '/') {
             $fileName = $this->root;
             $dirName = '';
         } else {
-            $path = str_replace('\\/', chr(7), $path);
+            if ($useSlashSub) {
+                $path = str_replace(EXT_FLYSYSTEM_SLASH_SUBSTITUTE, chr(7), $path);
+            }
             $paths = explode('/', $path);
             $fileName = array_pop($paths);
             if ($getParentId) {
@@ -836,7 +839,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         }
         return [
             $dirName,
-            str_replace(chr(7), '/', $fileName)
+            $useSlashSub? str_replace(chr(7), '/', $fileName) : $fileName
         ];
     }
 
