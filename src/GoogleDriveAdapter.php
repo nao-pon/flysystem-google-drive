@@ -697,7 +697,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     }
 
     /**
-     * Do cache cacheHasDirs with batch request
+     * Do cache cacheHasDirs
      *
      * @param array $targets
      *            [[path => id],...]
@@ -713,23 +713,20 @@ class GoogleDriveAdapter extends AbstractAdapter
             'pageSize' => 1
         ];
         $paths = [];
-        $client->setUseBatch(true);
-        $batch = $service->createBatch();
+        $results = [];
         $i = 0;
         foreach ($targets as $id) {
             $opts['q'] = sprintf('trashed = false and "%s" in parents and mimeType = "%s"', $id, self::DIRMIME);
             $request = $gFiles->listFiles($this->applyDefaultParams($opts, 'files.list'));
-            $key = ++ $i;
-            $batch->add($request, (string) $key);
-            $paths['response-' . $key] = $id;
+            $key = (string) ++ $i;
+            $results[$key] = $request;
+            $paths[$key] = $id;
         }
-        $results = $batch->execute();
         foreach ($results as $key => $result) {
             if ($result instanceof Google_Service_Drive_FileList) {
                 $object[$paths[$key]]['hasdir'] = $this->cacheHasDirs[$paths[$key]] = (bool) $result->getFiles();
             }
         }
-        $client->setUseBatch(false);
         return $object;
     }
 
@@ -996,24 +993,21 @@ class GoogleDriveAdapter extends AbstractAdapter
         $service = $this->service;
         $client = $service->getClient();
 
-        $client->setUseBatch(true);
-        $batch = $service->createBatch();
+        $results = [];
 
         $opts = [
             'fields' => $this->fetchfieldsGet
         ];
 
-        $batch->add($this->service->files->get($itemId, $this->applyDefaultParams($opts, 'files.get')), 'obj');
+        $results[] = $this->service->files->get($itemId, $this->applyDefaultParams($opts, 'files.get'));
         if ($checkDir && $this->useHasDir) {
-            $batch->add($service->files->listFiles($this->applyDefaultParams([
+            $results[] = $service->files->listFiles($this->applyDefaultParams([
                 'pageSize' => 1,
                 'q' => sprintf('trashed = false and "%s" in parents and mimeType = "%s"', $itemId, self::DIRMIME)
-            ], 'files.list')), 'hasdir');
+            ], 'files.list'));
         }
-        $results = array_values($batch->execute());
 
         list ($fileObj, $hasdir) = array_pad($results, 2, null);
-        $client->setUseBatch(false);
 
         if ($fileObj instanceof Google_Service_Drive_DriveFile) {
             if ($hasdir && $fileObj->mimeType === self::DIRMIME) {
