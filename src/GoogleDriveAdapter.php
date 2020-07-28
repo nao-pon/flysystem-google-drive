@@ -993,26 +993,25 @@ class GoogleDriveAdapter extends AbstractAdapter
         $service = $this->service;
         $client = $service->getClient();
 
-        $results = [];
+        $fileObj = $hasdir = NULL;
 
         $opts = [
             'fields' => $this->fetchfieldsGet
         ];
 
         try {
-            $results[] = $this->service->files->get($itemId, $this->applyDefaultParams($opts, 'files.get'));
+            $fileObj = $this->service->files->get($itemId, $this->applyDefaultParams($opts, 'files.get'));
             if ($checkDir && $this->useHasDir) {
-                $results[] = $service->files->listFiles($this->applyDefaultParams([
+                $hasdir = $service->files->listFiles($this->applyDefaultParams([
                     'pageSize' => 1,
                     'q' => sprintf('trashed = false and "%s" in parents and mimeType = "%s"', $itemId, self::DIRMIME)
                 ], 'files.list'));
             }
+        } catch (\Google_Service_Exception $exception) {
+            if (!$fileObj) {
+                return NULL;
+            }
         }
-        catch (\Google_Service_Exception $exception) {
-            return NULL;
-        }
-
-        list ($fileObj, $hasdir) = array_pad($results, 2, null);
 
         if ($fileObj instanceof Google_Service_Drive_DriveFile) {
             if ($hasdir && $fileObj->mimeType === self::DIRMIME) {
