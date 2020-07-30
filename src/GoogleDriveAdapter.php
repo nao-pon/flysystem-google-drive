@@ -1007,9 +1007,11 @@ class GoogleDriveAdapter extends AbstractAdapter
                     'q' => sprintf('trashed = false and "%s" in parents and mimeType = "%s"', $itemId, self::DIRMIME)
                 ], 'files.list'));
             }
-        } catch (\Google_Service_Exception $exception) {
+        } catch (\Google_Service_Exception $e) {
             if (!$fileObj) {
-                return NULL;
+                if (intVal($e->getCode()) != 404) {
+                    return NULL;
+                }
             }
         }
 
