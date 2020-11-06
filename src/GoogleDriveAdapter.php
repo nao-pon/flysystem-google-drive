@@ -1412,4 +1412,21 @@ class GoogleDriveAdapter extends AbstractAdapter
             $this->root = $teamDriveId;
         }
     }
+
+    /**
+     * Allow to forcefully clear the cache to enable long running process 
+     *
+     * @return void
+     *
+     */
+    
+    public function clearCache()
+    {
+        $this->cacheHasDirs = []; 
+        $this->cacheFileObjects = []; 
+        $this->cacheFileObjectsByName = []; 
+    }   
+
+
+
 }
