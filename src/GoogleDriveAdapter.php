@@ -1,4 +1,5 @@
 <?php
+
 namespace Hypweb\Flysystem\GoogleDrive;
 
 use Google_Service_Drive;
@@ -29,7 +30,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     const FETCHFIELDS_LIST = 'files(FETCHFIELDS_GET),nextPageToken';
 
     /**
-     * MIME tyoe of directory
+     * MIME type of directory
      *
      * @var string
      */
@@ -156,7 +157,7 @@ class GoogleDriveAdapter extends AbstractAdapter
 
     public function __construct(Google_Service_Drive $service, $root = null, $options = [])
     {
-        if (! $root) {
+        if (!$root) {
             $root = 'root';
         }
         $this->service = $service;
@@ -171,8 +172,8 @@ class GoogleDriveAdapter extends AbstractAdapter
 
         $this->fetchfieldsGet = self::FETCHFIELDS_GET;
         if ($this->options['additionalFetchField']) {
-             $this->fetchfieldsGet .= ',' . $this->options['additionalFetchField'];
-             $this->additionalFields = explode(',', $this->options['additionalFetchField']);
+            $this->fetchfieldsGet .= ',' . $this->options['additionalFetchField'];
+            $this->additionalFields = explode(',', $this->options['additionalFetchField']);
         }
         $this->fetchfieldsList = str_replace('FETCHFIELDS_GET', $this->fetchfieldsGet, self::FETCHFIELDS_LIST);
         if (isset($this->options['defaultParams']) && is_array($this->options['defaultParams'])) {
@@ -264,8 +265,8 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     public function rename($path, $newpath)
     {
-        list ($oldParent, $fileId) = $this->splitPath($path);
-        list ($newParent, $newName) = $this->splitPath($newpath);
+        list($oldParent, $fileId) = $this->splitPath($path);
+        list($newParent, $newName) = $this->splitPath($newpath);
 
         $file = new Google_Service_Drive_DriveFile();
         $file->setName($newName);
@@ -298,9 +299,9 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     public function copy($path, $newpath)
     {
-        list (, $srcId) = $this->splitPath($path);
+        list(, $srcId) = $this->splitPath($path);
 
-        list ($newParentId, $fileName) = $this->splitPath($newpath);
+        list($newParentId, $fileName) = $this->splitPath($newpath);
 
         $file = new Google_Service_Drive_DriveFile();
         $file->setName($fileName);
@@ -315,7 +316,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         if ($newFile instanceof Google_Service_Drive_DriveFile) {
             $this->cacheFileObjects[$newFile->getId()] = $newFile;
             $this->cacheFileObjectsByName[$newParentId . '/' . $fileName] = $newFile;
-            list ($newDir) = $this->splitPath($newpath);
+            list($newDir) = $this->splitPath($newpath);
             $newpath = (($newDir === $this->root) ? '' : ($newDir . '/')) . $newFile->getId();
             if ($this->getRawVisibility($path) === AdapterInterface::VISIBILITY_PUBLIC) {
                 $this->publish($newpath);
@@ -339,7 +340,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     {
         if ($file = $this->getFileObject($path)) {
             $name = $file->getName();
-            list ($parentId, $id) = $this->splitPath($path);
+            list($parentId, $id) = $this->splitPath($path);
             if ($parents = $file->getParents()) {
                 $file = new Google_Service_Drive_DriveFile();
                 $opts = [];
@@ -395,7 +396,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     public function createDir($dirname, Config $config)
     {
-        list ($pdirId, $name) = $this->splitPath($dirname);
+        list($pdirId, $name) = $this->splitPath($dirname);
 
         $folder = $this->createDirectory($name, $pdirId);
         if ($folder) {
@@ -436,7 +437,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     public function read($path)
     {
-        list (, $fileId) = $this->splitPath($path);
+        list(, $fileId) = $this->splitPath($path);
         if ($response = $this->service->files->get($fileId, $this->applyDefaultParams([
             'alt' => 'media'
         ], 'files.get'))) {
@@ -461,7 +462,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         if (func_num_args() > 1) {
             $redirect = func_get_arg(1);
         }
-        if (! $redirect) {
+        if (!$redirect) {
             $redirect = [
                 'cnt' => 0,
                 'url' => '',
@@ -534,7 +535,7 @@ class GoogleDriveAdapter extends AbstractAdapter
                     if (strpos($res, 'Set-Cookie:') === 0) {
                         $domain = $url['host'];
                         if (preg_match('/^Set-Cookie:(.+)(?:domain=\s*([^ ;]+))?/i', $res, $c1)) {
-                            if (! empty($c1[2])) {
+                            if (!empty($c1[2])) {
                                 $domain = trim($c1[2]);
                             }
                             if (preg_match('/([^ ]+=[^;]+)/', $c1[1], $c2)) {
@@ -544,7 +545,7 @@ class GoogleDriveAdapter extends AbstractAdapter
                     }
                 }
                 if ($redirect['url']) {
-                    $redirect['cnt'] ++;
+                    $redirect['cnt']++;
                     fclose($stream);
                     return $this->readStream($path, $redirect);
                 }
@@ -718,7 +719,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         foreach ($targets as $id) {
             $opts['q'] = sprintf('trashed = false and "%s" in parents and mimeType = "%s"', $id, self::DIRMIME);
             $request = $gFiles->listFiles($this->applyDefaultParams($opts, 'files.list'));
-            $key = (string) ++ $i;
+            $key = (string) ++$i;
             $results[$key] = $request;
             $paths[$key] = $id;
         }
@@ -836,7 +837,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         }
         return [
             $dirName,
-            $useSlashSub? str_replace(chr(7), '/', $fileName) : $fileName
+            $useSlashSub ? str_replace(chr(7), '/', $fileName) : $fileName
         ];
     }
 
@@ -890,7 +891,7 @@ class GoogleDriveAdapter extends AbstractAdapter
         }
         // attach additional fields
         if ($this->additionalFields) {
-            foreach($this->additionalFields as $field) {
+            foreach ($this->additionalFields as $field) {
                 if (property_exists($object, $field)) {
                     $result[$field] = $object->$field;
                 }
@@ -912,7 +913,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     protected function getItems($dirname, $recursive = false, $maxResults = 0, $query = '')
     {
-        list (, $itemId) = $this->splitPath($dirname);
+        list(, $itemId) = $this->splitPath($dirname);
 
         $maxResults = min($maxResults, 1000);
         $results = [];
@@ -983,7 +984,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     protected function getFileObject($path, $checkDir = false)
     {
-        list ($parentId, $itemId) = $this->splitPath($path, true);
+        list($parentId, $itemId) = $this->splitPath($path, true);
         if (isset($this->cacheFileObjects[$itemId])) {
             return $this->cacheFileObjects[$itemId];
         } else if (isset($this->cacheFileObjectsByName[$parentId . '/' . $itemId])) {
@@ -1090,7 +1091,7 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     protected function upload($path, $contents, Config $config)
     {
-        list ($parentId, $fileName) = $this->splitPath($path);
+        list($parentId, $fileName) = $this->splitPath($path);
         $srcDriveFile = $this->getFileObject($path);
         if (is_resource($contents)) {
             $uploadedDriveFile = $this->uploadResourceToGoogleDrive($contents, $parentId, $fileName, $srcDriveFile, $config->get('mimetype'));
@@ -1136,14 +1137,14 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     protected function normaliseUploadedFile($uploadedFile, $localPath, $visibility)
     {
-        list ($parentId, $fileName) = $this->splitPath($localPath);
+        list($parentId, $fileName) = $this->splitPath($localPath);
 
         if (!($uploadedFile instanceof Google_Service_Drive_DriveFile)) {
             return false;
         }
 
         $this->cacheFileObjects[$uploadedFile->getId()] = $uploadedFile;
-        if (! $this->getFileObject($localPath)) {
+        if (!$this->getFileObject($localPath)) {
             $this->cacheFileObjectsByName[$parentId . '/' . $fileName] = $uploadedFile;
         }
         $result = $this->normaliseObject($uploadedFile, Util::dirname($localPath));
@@ -1184,7 +1185,7 @@ class GoogleDriveAdapter extends AbstractAdapter
 
         // Upload chunks until we run out of file to upload; $status will be false until the process is complete.
         $status = false;
-        while (! $status && ! feof($resource)) {
+        while (!$status && !feof($resource)) {
             $chunk = $this->readFileChunk($resource, $chunkSizeBytes);
             $status = $media->nextChunk($chunk);
         }
@@ -1218,14 +1219,14 @@ class GoogleDriveAdapter extends AbstractAdapter
      */
     protected function ensureDriveFileExists($contents, $parentId, $fileName, $srcDriveFile, $mime)
     {
-        if (! $mime) {
+        if (!$mime) {
             $mime = Util::guessMimeType($fileName, $contents);
         }
 
         $driveFile = new Google_Service_Drive_DriveFile();
 
         $mode = 'update';
-        if (! $srcDriveFile) {
+        if (!$srcDriveFile) {
             $mode = 'insert';
             $driveFile->setName($fileName);
             $driveFile->setParents([$parentId]);
@@ -1263,7 +1264,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     {
         $byteCount = 0;
         $giantChunk = '';
-        while (! feof($handle)) {
+        while (!feof($handle)) {
             // fread will never return more than 8192 bytes if the stream is read buffered and it does not represent a plain file
             // An example of a read buffered file is when reading from a URL
             $chunk = fread($handle, 8192);
