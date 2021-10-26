@@ -29,7 +29,7 @@ class GoogleDriveAdapter extends AbstractAdapter
     const FETCHFIELDS_LIST = 'files(FETCHFIELDS_GET),nextPageToken';
 
     /**
-     * MIME tyoe of directory
+     * MIME type of directory
      *
      * @var string
      */
