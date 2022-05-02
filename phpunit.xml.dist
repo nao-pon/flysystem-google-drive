@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.3/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         backupGlobals="false"
+         backupStaticAttributes="false"
+         colors="true"
+         convertErrorsToExceptions="false"
+         convertNoticesToExceptions="false"
+         convertWarningsToExceptions="false"
+         processIsolation="false"
+         stopOnFailure="false"
+         verbose="true"
+>
+    <coverage processUncoveredFiles="true">
+        <include>
+            <directory>src/</directory>
+        </include>
+    </coverage>
+    <testsuites>
+        <testsuite name="Flysystem Google Drive Adapter Test Suite">
+            <directory suffix="Tests.php">tests/</directory>
+        </testsuite>
+    </testsuites>
+    <php>
+        <env name="GOOGLE_DRIVE_CLIENT_ID" value="" />
+        <env name="GOOGLE_DRIVE_CLIENT_SECRET" value="" />
+        <env name="GOOGLE_DRIVE_REFRESH_TOKEN" value="" />
+        <env name="GOOGLE_DRIVE_TEAM_DRIVE_ID" value="" />
+    </php>
+</phpunit>

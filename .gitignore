@@ -2,7 +2,9 @@
 .idea
 .project
 .settings
+.phpunit.result.cache
 bin
 composer.lock
 composer.phar
 vendor
+phpunit.xml
