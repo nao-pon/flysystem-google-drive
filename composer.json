@@ -23,10 +23,18 @@
             "Hypweb\\Flysystem\\GoogleDrive\\": "src/"
         }
     },
+    "scripts": {
+        "pre-autoload-dump": [
+            "Google\\Task\\Composer::cleanup"
+        ]
+    },
     "config": {
         "bin-dir": "bin"
     },
     "extra": {
+        "google/apiclient-services": [
+            "Drive"
+        ],
         "branch-alias": {
             "dev-api_v2": "1.0.x-dev",
             "dev-master": "1.1.x-dev"
