@@ -1,5 +1,5 @@
 <?php
-namespace Hypweb\Flysystem\GoogleDrive;
+namespace Enston\Flysystem\GoogleDrive;
 
 use Google_Service_Drive;
 use Google_Service_Drive_DriveFile;

@@ -1,6 +1,6 @@
 <?php
 
-use Hypweb\Flysystem\GoogleDrive\GoogleDriveAdapter as Adapter;
+use Enston\Flysystem\GoogleDrive\GoogleDriveAdapter as Adapter;
 use League\Flysystem\Config;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;

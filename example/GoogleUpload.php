@@ -2,10 +2,10 @@
 
 namespace App;
 
+use Enston\Flysystem\GoogleDrive\GoogleDriveAdapter;
 use League\Flysystem\Filesystem;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
-use Hypweb\Flysystem\GoogleDrive\GoogleDriveAdapter;
 
 class GoogleUpload
 {

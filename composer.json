@@ -1,13 +1,7 @@
 {
-    "name": "nao-pon/flysystem-google-drive",
+    "name": "enston/flysystem-google-drive",
     "description": "Flysystem adapter for Google Drive",
     "license": "MIT",
-    "authors": [
-        {
-            "name": "Naoki Sawada",
-            "email": "hypweb@gmail.com"
-        }
-    ],
     "require": {
         "php": ">=5.4.0",
         "league/flysystem": "~1.0",
@@ -20,7 +14,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Hypweb\\Flysystem\\GoogleDrive\\": "src/"
+            "Enston\\Flysystem\\GoogleDrive\\": "src/"
         }
     },
     "config": {
