@@ -743,13 +743,17 @@ class GoogleDriveAdapter extends AbstractAdapter
         $file = $this->getFileObject($path);
         $permissions = $file->getPermissions();
         $visibility = AdapterInterface::VISIBILITY_PRIVATE;
-        foreach ($permissions as $permission) {
-            if ($permission->type === $this->publishPermission['type'] && $permission->role === $this->publishPermission['role']) {
-                $visibility = AdapterInterface::VISIBILITY_PUBLIC;
-                break;
+        try {
+            foreach ($permissions as $permission) {
+                if ($permission->type === $this->publishPermission['type'] && $permission->role === $this->publishPermission['role']) {
+                    $visibility = AdapterInterface::VISIBILITY_PUBLIC;
+                    break;
+                }
             }
+            return $visibility;
+        } catch (Exception $e) {
+            return false;
         }
-        return $visibility;
     }
 
     /**
