@@ -10,6 +10,7 @@ use League\Flysystem\Adapter\AbstractAdapter;
 use League\Flysystem\AdapterInterface;
 use League\Flysystem\Config;
 use League\Flysystem\Util;
+use Exception;
 
 class GoogleDriveAdapter extends AbstractAdapter
 {
