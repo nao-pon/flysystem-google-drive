@@ -43,6 +43,13 @@ class GoogleDriveAdapter extends AbstractAdapter
     protected $service;
 
     /**
+     * Root directory
+     *
+     * @var string
+     */
+    public $root;
+
+    /**
      * Default options
      *
      * @var array
